@@ -1,7 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { db } from '../../src/config/firebase.js';
+import { getDb } from '../../src/config/firebase.js';
 
-const ref = db.collection('smoke').doc('s02');
+const ref = getDb().collection('smoke').doc('s02');
 
 describe('Firestore through the Admin SDK', () => {
   afterAll(async () => {

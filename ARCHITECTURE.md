@@ -124,6 +124,7 @@ Every **game action** body includes `version` (the version the client last saw).
 | Method | Path | Auth | Body | Notes / errors |
 |---|---|---|---|---|
 | GET | `/health` | public | — | `{ ok: true }` |
+| GET | `/health/db` | public | — | writes + reads the fixed doc `_health/ping`, then `{ ok: true, firestore: 'ok' }` |
 | GET | `/countries` | public | — | catalogue with `soldierValue` |
 | GET | `/games` | token | — | the caller's games (sessions), newest first |
 | POST | `/games` | token | `{ countryCode }` | 201 · 422 unknown country |

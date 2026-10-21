@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-geopolitics"
+    "default": "demo-geopolitics",
+    "prod": "geopolitics-game-d17a4"
   }
 }
