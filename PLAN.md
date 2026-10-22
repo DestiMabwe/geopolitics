@@ -114,7 +114,7 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 
 ## B. Engine for the slice (pure)
 
-- [ ] **S04 [AI tests → ME] (S): `soldierValue`, `conquestBonus`, `reinforcementAmount`** (§1.2, §5.5, §7.2).
+- [x] **S04 [AI tests → ME] (S): `soldierValue`, `conquestBonus`, `reinforcementAmount`** (§1.2, §5.5, §7.2).
   **Done when:** every boundary in §1.2 and every example in §5.5 and §7.2 passes.
 - [ ] **S05 [AI tests → ME] (S): `diceCount`** (§5.2).
   **Done when:** all four rows of the §5.2 table pass, and `soldiers(s) = 1` throws `IllegalMoveError`.
@@ -236,3 +236,4 @@ The brief allows **one** extra feature. **Proposed: NPC profiles** (brief idea 9
 | 2026-10-20 | S02 | Follow-up: Emulator UI "site can't be reached" was because the emulators weren't running. `npm run emulators` must stay open; `test:integration` shuts them down after the run. UI confirmed at http://127.0.0.1:4000 |
 | 2026-10-20 | S03 | Worldometers 2026 table joined with ISO alpha-3 + capital coords from Wikidata, since REST Countries v3 is retired. 24 name mismatches mapped by hand, multi-capital picks listed in the file's `notes`. **Decision: sovereign states only (195 = 193 UN members + VAT, PSE).** All 234 rows gave 106 one-soldier entries (37 under 100k people, mostly remote islands/territories), which flooded the §3.2 random picks; island *states* (TUV, NRU, FJI…) stay. Drops TWN, HKG, ESH, PRI, GRL etc. `GET /api/countries` returns the raw catalogue; ARCHITECTURE §3 wants `soldierValue` in it, deferred to after S04. Build scripts were throwaway (not in repo) |
 | 2026-10-21 | S31a | Live at https://geopolitics-peach.vercel.app (Vercel team EL FX, region cpt1): `/api/health` → `{ok:true}`, `/api/health/db` writes and reads `_health/ping` in the real Firestore project, `git log -p` clean, 46/46 unit tests green. Learned: Vercel's runtime has require(esm) off, so `jwks-rsa`'s `jose` is pinned to v5 via `overrides` (regression test in `tests/unit/vercelRuntime.test.js`). `FIREBASE_PRIVATE_KEY` must be pasted without the JSON's outer quotes, or cert() fails with "Failed to parse private key". Email/password Auth to be confirmed in the Firebase console |
+| 2026-10-22 | S04 | `src/game/soldiers.js` done: `soldierValue`, `conquestBonus`, `reinforcementAmount`, 17 tests, 63/63 green. No input guards: GAME_RULES is silent and §2.4 means 0 countries never reaches §7.2 |
