@@ -112,3 +112,16 @@ function connect(countries, borders) {
 export function buildBorders(countries, k = 3) {
     return connect(countries, nearestNeighbours(countries, k));
 }
+
+/**
+ * Whether countries `a` and `b` border each other on this game's map (`state.borders`).
+ * Unknown codes are not neighbours. Does not mutate `state`.
+ * GAME_RULES §3.7, §5.1
+ * @param {{ borders: Record<string, string[]> }} state
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+export function isNeighbour(state, a, b) {
+    return (state.borders[a]?.includes(b) ?? false) && (state.borders[b]?.includes(a) ?? false);
+}

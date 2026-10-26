@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { distanceKm, buildBorders } from '../../src/game/map.js';
+import { distanceKm, buildBorders, isNeighbour } from '../../src/game/map.js';
+import { makeState } from '../helpers.js';
 import data from '../../src/data/countries.json' with { type: 'json' };
 
 // GAME_RULES §3.9: fixtures sit on the equator, so distance order = longitude gap.
@@ -166,5 +167,27 @@ describe('buildBorders: purity', () => {
     const before = structuredClone(input);
     buildBorders(input);
     expect(input).toEqual(before);
+  });
+});
+
+describe('isNeighbour (GAME_RULES §3.7, §5.1)', () => {
+  const state = makeState();
+
+  it('is true for two countries that border each other', () => {
+    expect(isNeighbour(state, 'AAA', 'BBB')).toBe(true);
+  });
+
+  it('is false for two countries that do not border each other', () => {
+    expect(isNeighbour(state, 'AAA', 'DDD')).toBe(false);
+  });
+
+  it('is symmetric', () => {
+    expect(isNeighbour(state, 'DDD', 'CCC')).toBe(true);
+    expect(isNeighbour(state, 'CCC', 'DDD')).toBe(true);
+  });
+
+  it('is false for an unknown code', () => {
+    expect(isNeighbour(state, 'XXX', 'AAA')).toBe(false);
+    expect(isNeighbour(state, 'AAA', 'XXX')).toBe(false);
   });
 });

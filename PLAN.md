@@ -120,11 +120,11 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
   **Done when:** all four rows of the §5.2 table pass, and `soldiers(s) = 1` throws `IllegalMoveError`.
 - [x] **S05b [AI tests → ME] (M): `distanceKm` + `buildBorders`** (§3.7–3.9).
   **Done when:** tests on equator coordinates prove the nearest-3 rule, symmetry, distance tie-breaks, that the map is always connected, and that two far clusters of 5 are joined by exactly one extra link.
-- [ ] **S06 [AI tests → ME] (M): `createGame`** (§2, §3).
+- [x] **S06 [AI tests → ME] (M): `createGame`** (§2, §3).
   **Done when:** with scripted `randomInt`, the game has 10 distinct countries including the human's, `borders` from `buildBorders`, starting soldiers = value, a shuffled turn order of 10, profiles 3/3/3, `round` 1, and the first player's phase is `manoeuvre`.
-- [ ] **S07 [AI tests → ME] (S): `resolveRoll`** (§5.3).
+- [x] **S07 [AI tests → ME] (S): `resolveRoll`** (§5.3).
   **Done when:** every row of the §5.3 table passes, pairs stay in roll order, and ties kill nobody.
-- [ ] **S08 [AI tests → ME] (M): `startAttack` + `rollAttack` + `stopAttack`** (§5.1, §5.4).
+- [x] **S08 [AI tests → ME] (M): `startAttack` + `rollAttack` + `stopAttack`** (§5.1, §5.4).
   **Done when:** tests cover every legality rule in §5.1 (including attacking a non-neighbour → 422), the in-progress / failed / stopped outcomes, that the phase is `attacking` throughout, and that a failed or stopped attack ends the turn (§4.5).
 
 ## C. Slice wiring: server and a minimal browser game
@@ -239,3 +239,4 @@ The brief allows **one** extra feature. **Proposed: NPC profiles** (brief idea 9
 | 2026-10-22 | S04 | `src/game/soldiers.js` done: `soldierValue`, `conquestBonus`, `reinforcementAmount`, 17 tests, 63/63 green. No input guards: GAME_RULES is silent and §2.4 means 0 countries never reaches §7.2 |
 | 2026-10-22 | S05 | `src/game/dice.js` `diceCount` done, 6 tests, 69/69 green. Added `src/game/errors.js` (`IllegalMoveError`, `WrongPhaseError`). Defender = 0 left untested (§5.4 conquers first). Refactor (dead branches after the `a − 1 < d` / `>=` pair, detached JSDoc) offered and declined |
 | 2026-10-23 | S05b | `src/game/map.js` `distanceKm` + `buildBorders` done, 20 tests, 89/89 green. Neighbour lists sorted by code (my choice, §3.7 silent). Equator fixtures use integer longitudes so ties are exact. Refactored: camelCase helper `nearestNeighbours`, JSDoc reattached, redundant sort removed. Declined: `localeCompare` → `<`, `distanceKm` early `return 0`. `borders(state, code)` / `isNeighbour` deferred to S06/S08. One-off 27s cold-start failure seen once, not reproduced |
+| 2026-10-26 | S08 | `src/game/attack.js` `startAttack`, `rollAttack`, `stopAttack` + `map.js` `isNeighbour` done, 28 new tests, 143/143 green. `tests/helpers.js` gained `makeState()`. `endTurn` is a stub in `turn.js`, mocked in attack tests until S12. Conquest branch throws a plain Error until S09, so a conquest in the slice (S20a/S25b) would 500. AI's tied-roll test scripted too few dice; I fixed it. Refactored: `endAttack` + `currentPlayer` helpers. Pending: drop `toUpperCase` from `startAttack` (mine). S06/S07 boxes ticked late (done in commits e3923cb, 20b1425) |
