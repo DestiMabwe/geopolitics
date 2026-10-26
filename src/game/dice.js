@@ -32,3 +32,33 @@ export function diceCount(attacking, defending) {
         return 1;
     }
 }
+
+/**
+ * Losses from one roll. Dice are paired in the order rolled (not sorted):
+ * attacker die i against defender die i. The lower die loses 1 soldier; a tie kills nobody.
+ * Does not mutate its inputs.
+ * GAME_RULES §5.3
+ * @param {number[]} attackerDice
+ * @param {number[]} defenderDice
+ * @returns {{ attackerLosses: number, defenderLosses: number }}
+ * @throws {Error} 'same number of dice' when the two lists differ in length (§5.2 says they never do)
+ */
+export function resolveRoll(attackerDice, defenderDice) {
+    attackerDice = [...attackerDice];
+    defenderDice = [...defenderDice];
+    if (attackerDice.length !== defenderDice.length) {
+        throw new Error('same number of dice');
+    }
+    let attackerLosses = 0;
+    let defenderLosses = 0;
+    for (let i = 0; i < attackerDice.length; i++) {
+        const a = attackerDice[i];
+        const d = defenderDice[i];
+        if (a > d) {
+            defenderLosses++;
+        } else if (a < d) {
+            attackerLosses++;
+        }
+    }
+    return { attackerLosses, defenderLosses };
+}
