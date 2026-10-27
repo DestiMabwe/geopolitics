@@ -20,22 +20,13 @@ import { HttpError } from '../middleware/errorHandler.js';
  */
 export async function createGame(ownerUid, state, events) {
   const gameDoc = { ...state, ownerUid, version: 1, eventSeq: events.length, llmCalls: 0 };
-  const eventDocs = events.map((e, i) => ({
-    seq: i + 1,
-    round: e.round ?? 0,
-    type: e.type,
-    data: Object.fromEntries(Object.entries(e).filter(([k]) => k !== 'type' && k !== 'round')),
-    text: '',
-    aiText: null,
-    createdAt: FieldValue.serverTimestamp(),
-  }));
+  const eventDocs = events.map((e, i) => toEventDoc(e, i + 1));
 
   const batch = getDb().batch();
   const gameRef = getDb().collection('games').doc();
   batch.set(gameRef, { ...gameDoc, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
   for (const event of eventDocs) {
-    const eventId = String(event.seq).padStart(6, '0');
-    batch.set(gameRef.collection('events').doc(eventId), event);
+    batch.set(gameRef.collection('events').doc(eventId(event.seq)), event);
   }
   await batch.commit();
   return gameRef.id;
@@ -84,4 +75,82 @@ export async function listEvents(gameId, after) {
     .limit(200)
     .get();
   return snap.docs.map((d) => d.data());
+}
+
+/**
+ * Runs one game action in one Firestore transaction (ARCHITECTURE §4.1, §5.2).
+ *
+ * In order: 404 'not_found' · 403 'forbidden' (ownerUid ≠ uid) · 409 'game_over' (status ≠ 'active') ·
+ * 409 'stale_version' (version ≠ stored version) · 409 'not_your_turn' (the current player's
+ * `type` ≠ `turn`). Then `fn(state)`, where `state` is the stored doc without `ownerUid`, `version`,
+ * `eventSeq`, `llmCalls`, `createdAt`, `updatedAt`. Errors thrown by `fn` propagate and nothing is written.
+ *
+ * On success it writes the new state with `version + 1`, `eventSeq + events.length` and a new
+ * `updatedAt`, plus one event doc per event (same shape as `createGame`), seq continuing from `eventSeq`.
+ *
+ * @param {string} gameId
+ * @param {string} uid caller's uid from requireAuth
+ * @param {{ version: number, turn: 'human' | 'npc' }} expected
+ * @param {(state: object) => { state: object, events: object[] }} fn the engine call
+ * @returns {Promise<{ game: object, events: object[] }>} `game` has `id` and still has `ownerUid`
+ * @throws {HttpError} 404 / 403 / 409 as above
+ */
+export async function runAction(gameId, uid, { version, turn }, fn) {
+  const gameRef = getDb().collection('games').doc(gameId);
+
+  // Anything thrown inside the callback aborts the transaction, so a failed check or engine error writes nothing.
+  return getDb().runTransaction(async (tx) => {
+    const doc = await tx.get(gameRef);
+    if (!doc.exists) {
+      throw new HttpError(404, 'not_found', `No game with id ${gameId}`);
+    }
+    const stored = doc.data();
+    if (stored.ownerUid !== uid) {
+      throw new HttpError(403, 'forbidden', 'Only the owner can play this game');
+    }
+    if (stored.status !== 'active') {
+      throw new HttpError(409, 'game_over', 'The game is over');
+    }
+    if (stored.version !== version) {
+      throw new HttpError(409, 'stale_version', `Version ${version} is stale, the game is at ${stored.version}`);
+    }
+    const current = stored.players[stored.turnOrder[stored.currentTurn]];
+    if (current.type !== turn) {
+      throw new HttpError(409, 'not_your_turn', `It is not the ${turn}'s turn`);
+    }
+
+    const { ownerUid, version: _v, eventSeq, llmCalls, createdAt, updatedAt, ...state } = stored;
+    // Randomness inside fn reruns if Firestore retries the callback; only the committed roll is seen (ARCHITECTURE §4).
+    const result = fn(state);
+
+    const game = {
+      ...result.state,
+      ownerUid,
+      llmCalls,
+      createdAt,
+      version: stored.version + 1,
+      eventSeq: eventSeq + result.events.length,
+    };
+    const eventDocs = result.events.map((e, i) => toEventDoc(e, eventSeq + i + 1));
+
+    tx.set(gameRef, { ...game, updatedAt: FieldValue.serverTimestamp() });
+    for (const event of eventDocs) {
+      tx.set(gameRef.collection('events').doc(eventId(event.seq)), event);
+    }
+    // Server timestamps can't be read back inside a transaction, so they are left out of the return value.
+    return {
+      game: { id: gameId, ...game },
+      events: eventDocs.map(({ createdAt: _c, ...event }) => event),
+    };
+  });
+}
+
+/** Engine event → stored event doc (ARCHITECTURE §2). `text` stays '' until S16. */
+function toEventDoc(event, seq) {
+  const { type, round = 0, ...data } = event;
+  return { seq, round, type, data, text: '', aiText: null, createdAt: FieldValue.serverTimestamp() };
+}
+
+function eventId(seq) {
+  return String(seq).padStart(6, '0');
 }
