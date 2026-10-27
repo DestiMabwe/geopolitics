@@ -1,6 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { apiRouter } from './routes/api.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 // Resolved from this file, not the working directory, so Vercel and tests find it too.
 const publicDir = fileURLToPath(new URL('../public', import.meta.url));
@@ -16,5 +17,7 @@ export function createApp() {
   app.use(express.json());
   app.use('/api', apiRouter);
   app.use(express.static(publicDir));
+  // Last, so it catches errors from every route above.
+  app.use(errorHandler);
   return app;
 }

@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getDb } from '../config/firebase.js';
 import countries from '../data/countries.json' with { type: 'json' };
+import { requireAuth, optionalAuth } from '../middleware/requireAuth.js';
+import * as games from '../controllers/gamesController.js';
 
 export const apiRouter = Router();
 
@@ -22,3 +24,9 @@ apiRouter.get('/health/db', async (req, res) => {
 apiRouter.get('/countries', (req, res) => {
   res.json(countries);
 });
+
+// ARCHITECTURE §3: games. Creating and listing need a login; reading a game or its events is public.
+apiRouter.post('/games', requireAuth, games.createGame);
+apiRouter.get('/games', requireAuth, games.listGames);
+apiRouter.get('/games/:id', optionalAuth, games.getGame);
+apiRouter.get('/games/:id/events', games.listEvents);

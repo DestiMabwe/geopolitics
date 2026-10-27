@@ -129,8 +129,9 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 
 ## C. Slice wiring: server and a minimal browser game
 
-- [ ] **S17 [AI tests → ME] (M): Auth middleware + create/list/read games.** `requireAuth`, `errorHandler`, `POST /games`, `GET /games`, `GET /games/:id`, `GET /games/:id/events`.
+- [x] **S17 [AI tests → ME] (M): Auth middleware + create/list/read games.** `requireAuth`, `errorHandler`, `POST /games`, `GET /games`, `GET /games/:id`, `GET /games/:id/events`.
   **Done when:** HTTP tests show 401 without a token, 201 with a valid starting state stored in the emulator, `GET /games` returns only the caller's games, `GET /games/:id` and `/events` work **without** a token (public), and `ownerUid` never appears in a response (an `isOwner` flag does).
+  *Done 2026-10-28. Models (`gameModel`) written by me; the controller bodies were written by AI from my step-by-step pseudocode after my own attempt failed (exception to the usual split, logged in AI_LOG). Deferred: deploy `firestore.indexes.json` (`ownerUid` + `updatedAt desc`) before production; the emulator doesn't enforce composite indexes.*
 - [ ] **S18 [AI tests → ME] (M): `gameModel.runAction`.** One transaction: load → owner, turn and version checks → engine → save game + events.
   **Done when:** tests show 403 for another uid, 409 for a stale version, and that a 422 from the engine writes nothing.
 - [ ] **S20a [AI tests → ME] (S): Attack, roll and stop endpoints** (`/attack`, `/attack/roll`, `/attack/stop`).
