@@ -2,11 +2,66 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Geopolitics</title>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/main.css">
+  <script type="module" src="/js/app.js"></script>
 </head>
 <body>
-  <!-- Placeholder. The real shell arrives in S24. -->
-  <h1>Geopolitics</h1>
+  <!-- Layout from DESIGN §4. Each slot is filled by one component; placeholders go as they land. -->
+  <div class="layout">
+    <div class="layout__main">
+      <header class="slot slot--header" data-slot="header"></header>
+
+      <section class="slot slot--spectator" data-slot="spectator-banner" hidden></section>
+
+      <section class="slot slot--turn-order" data-slot="turn-order" aria-label="Turn order">
+        <ol class="turn-order">
+          <li class="placeholder placeholder--chip">P1</li>
+          <li class="placeholder placeholder--chip">P2</li>
+          <li class="placeholder placeholder--chip">P3</li>
+          <li class="placeholder placeholder--chip">P4</li>
+          <li class="placeholder placeholder--chip">P5</li>
+          <li class="placeholder placeholder--chip">P6</li>
+          <li class="placeholder placeholder--chip">P7</li>
+          <li class="placeholder placeholder--chip">P8</li>
+          <li class="placeholder placeholder--chip">P9</li>
+          <li class="placeholder placeholder--chip">P10</li>
+        </ol>
+      </section>
+
+      <main class="slot slot--board" data-slot="board" aria-label="Nations">
+        <ol class="nation-board">
+          <li class="placeholder placeholder--card">Nation 1</li>
+          <li class="placeholder placeholder--card">Nation 2</li>
+          <li class="placeholder placeholder--card">Nation 3</li>
+          <li class="placeholder placeholder--card">Nation 4</li>
+          <li class="placeholder placeholder--card">Nation 5</li>
+          <li class="placeholder placeholder--card">Nation 6</li>
+          <li class="placeholder placeholder--card">Nation 7</li>
+          <li class="placeholder placeholder--card">Nation 8</li>
+          <li class="placeholder placeholder--card">Nation 9</li>
+          <li class="placeholder placeholder--card">Nation 10</li>
+        </ol>
+      </main>
+
+      <section class="slot slot--action" data-slot="action-bar" aria-label="Actions">
+        <p class="placeholder">ActionBar</p>
+      </section>
+    </div>
+
+    <div class="layout__side">
+      <section class="slot slot--dice" data-slot="dice" aria-label="Dice">
+        <p class="placeholder">DicePanel</p>
+      </section>
+
+      <section class="slot slot--feed" data-slot="feed" aria-label="Commentary">
+        <p class="placeholder">CommentaryFeed</p>
+      </section>
+    </div>
+  </div>
+
+  <div class="toast-region" data-slot="toasts" aria-live="polite"></div>
 </body>
 </html>
