@@ -138,8 +138,9 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 - [x] **S20a [AI tests → ME] (S): Attack, roll and stop endpoints** (`/attack`, `/attack/roll`, `/attack/stop`).
   **Done when:** each roll is one request with server dice, a body containing `dice` / `soldiers` → 400, and a double roll with the same version → 409.
   *Done 2026-10-28. Body validation and the `runAction` wiring written by me; AI fixed the engine calls (`attack.startAttack(state, …)` instead of `state.startAttack(…)`: Firestore state is plain data) at my request (exception to the usual split, logged in AI_LOG). AI's roll test wrongly assumed a 3-dice cap and no ties; corrected to GAME_RULES §5.2–§5.3. Known: ~1 in 2,500 chance the 10 v 10 roll tests flake if the attacker loses all 9 pairs (fix by mocking `node:crypto` if it ever bites).*
-- [ ] **S22 [AI] (S): Firestore rules tests.** Rules deny **all** client reads and writes, so Firestore is reachable only through the server.
+- [x] **S22 [AI] (S): Firestore rules tests.** Rules deny **all** client reads and writes, so Firestore is reachable only through the server.
   **Done when:** an unauthenticated client and a signed-in client are both denied every read and write on `games`, `events`, and `players`.
+  *Done 2026-10-28. `tests/integration/rules.test.js`, 30 tests (15 per client; the signed-in client is the game's owner and the player doc's own uid). Added dev deps `@firebase/rules-unit-testing` + `firebase` (test-only peer, never in `public/`). Proved the tests bite by running them against `if true` (30/30 failed), then restored the rules. Seeds and deletes only its own docs; no `clearFirestore()`. Gotcha: PowerShell `Set-Content -Encoding utf8` writes a BOM that the rules parser rejects.*
 - [ ] **S24 [AI] (S): Tokens + responsive shell.** `tokens.css`, `main.css` reset, the layout from DESIGN §4 with empty component slots, plus AppHeader and Toast.
   **Done when:** there is no horizontal page scroll from 320px to 1440px, and no raw hex values appear outside `tokens.css`.
 - [ ] **S25 [AI shell → ME logic] (M): Sign up, log in, log out, API client, Home (StartScreen + GameList).**
