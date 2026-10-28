@@ -30,3 +30,8 @@ apiRouter.post('/games', requireAuth, games.createGame);
 apiRouter.get('/games', requireAuth, games.listGames);
 apiRouter.get('/games/:id', optionalAuth, games.getGame);
 apiRouter.get('/games/:id/events', games.listEvents);
+
+// ARCHITECTURE §3, §4.1: the human's attack. Each roll is its own request; the server rolls the dice.
+apiRouter.post('/games/:id/attack', requireAuth, games.startAttack);
+apiRouter.post('/games/:id/attack/roll', requireAuth, games.rollAttack);
+apiRouter.post('/games/:id/attack/stop', requireAuth, games.stopAttack);

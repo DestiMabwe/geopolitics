@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import * as gameModel from '../models/gameModel.js';
 import { createGame as newGameState } from '../game/setup.js';
+import * as attack from '../game/attack.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import countryData from '../data/countries.json' with { type: 'json' };
 
@@ -64,4 +65,88 @@ export async function listEvents(req, res) {
   }
   const events = await gameModel.listEvents(req.params.id, after);
   res.json({ events });
+}
+
+/**
+ * POST /games/:id/attack (token + owner). Body `{ version, from, to }`. ARCHITECTURE §3, GAME_RULES §5.1.
+ * 400 bad body · 403 not owner · 409 stale / wrong phase / not your turn · 422 illegal attack.
+ * Responds `200 { game, events }`.
+ *
+ * Steps:
+ * 1. Take the body (`req.body ?? {}`).
+ * 2. 400 'bad_request' if it has any key other than `version`, `from`, `to`
+ *    (this is what rejects a client-sent `dice` or `soldiers`).
+ * 3. 400 'bad_request' unless `version` is a positive integer and `from` and `to` are strings.
+ * 4. Call gameModel.runAction with the game id from the URL, the caller's uid,
+ *    `{ version, turn: 'human' }`, and a function that takes `state` and returns
+ *    the engine's `startAttack(state, from, to)`.
+ * 5. runAction gives back `{ game, events }`. Respond with `game` passed through toPublicGame
+ *    (with the caller's uid) and `events` as they are.
+ */
+export async function startAttack(req, res) {
+  const { version, from, to, ...rest } = req.body ?? {};
+  if (Object.keys(rest).length > 0) {
+    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
+  }
+  if (!Number.isInteger(version) || version <= 0 || typeof from !== 'string' || typeof to !== 'string') {
+    throw new HttpError(400, 'bad_request', 'invalid body');
+  }
+
+  const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
+    attack.startAttack(state, from, to)
+  );
+  res.json({ game: toPublicGame(game, req.uid), events });
+}
+
+/**
+ * POST /games/:id/attack/roll (token + owner). Body `{ version }`. One dice roll per request.
+ * ARCHITECTURE §4.1, GAME_RULES §5.2–§5.4. 400 · 403 · 409 stale / no attack in progress.
+ * Responds `200 { game, events }`.
+ *
+ * Steps:
+ * 1. Same body checks as startAttack, but the only allowed key is `version`.
+ * 2. Make `rollDie`: a function with no arguments returning crypto's `randomInt(1, 7)` (1–6).
+ *    The server rolls; the client never sends dice (CLAUDE.md hard rules).
+ * 3. Call runAction exactly as in startAttack, but the function returns the engine's
+ *    `rollAttack(state, rollDie)`.
+ * 4. Respond the same way as startAttack.
+ */
+export async function rollAttack(req, res) {
+  const { version, ...rest } = req.body ?? {};
+  if (Object.keys(rest).length > 0) {
+    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
+  }
+  if (!Number.isInteger(version) || version <= 0) {
+    throw new HttpError(400, 'bad_request', 'invalid body');
+  }
+
+  const rollDie = () => randomInt(1, 7);
+  const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
+    attack.rollAttack(state, rollDie)
+  );
+  res.json({ game: toPublicGame(game, req.uid), events });
+}
+
+/**
+ * POST /games/:id/attack/stop (token + owner). Body `{ version }`. Ends the turn (GAME_RULES §5.4, §4.5).
+ * 400 · 403 · 409 stale / no attack in progress. Responds `200 { game, events }`.
+ *
+ * Steps:
+ * 1. Same body check as rollAttack (only `version`).
+ * 2. Call runAction; the function returns the engine's `stopAttack(state)`.
+ * 3. Respond the same way as startAttack.
+ */
+export async function stopAttack(req, res) {
+  const { version, ...rest } = req.body ?? {};
+  if (Object.keys(rest).length > 0) {
+    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
+  }
+  if (!Number.isInteger(version) || version <= 0) {
+    throw new HttpError(400, 'bad_request', 'invalid body');
+  }
+
+  const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
+    attack.stopAttack(state)
+  );
+  res.json({ game: toPublicGame(game, req.uid), events });
 }

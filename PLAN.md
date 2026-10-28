@@ -135,8 +135,9 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 - [x] **S18 [AI tests → ME] (M): `gameModel.runAction`.** One transaction: load → owner, turn and version checks → engine → save game + events.
   **Done when:** tests show 403 for another uid, 409 for a stale version, and that a 422 from the engine writes nothing.
   *Done 2026-10-28. Signature `runAction(gameId, uid, { version, turn: 'human' | 'npc' }, fn)`; the turn check lives in the model (409 `not_your_turn`) so `/npc-turn` can reuse it. The body was written by AI with my permission (exception to the usual split, logged in AI_LOG). The event-doc mapping is now shared with `createGame` (`toEventDoc`). The returned game/events leave out the new server timestamps (they can't be read back inside a transaction).*
-- [ ] **S20a [AI tests → ME] (S): Attack, roll and stop endpoints** (`/attack`, `/attack/roll`, `/attack/stop`).
+- [x] **S20a [AI tests → ME] (S): Attack, roll and stop endpoints** (`/attack`, `/attack/roll`, `/attack/stop`).
   **Done when:** each roll is one request with server dice, a body containing `dice` / `soldiers` → 400, and a double roll with the same version → 409.
+  *Done 2026-10-28. Body validation and the `runAction` wiring written by me; AI fixed the engine calls (`attack.startAttack(state, …)` instead of `state.startAttack(…)`: Firestore state is plain data) at my request (exception to the usual split, logged in AI_LOG). AI's roll test wrongly assumed a 3-dice cap and no ties; corrected to GAME_RULES §5.2–§5.3. Known: ~1 in 2,500 chance the 10 v 10 roll tests flake if the attacker loses all 9 pairs (fix by mocking `node:crypto` if it ever bites).*
 - [ ] **S22 [AI] (S): Firestore rules tests.** Rules deny **all** client reads and writes, so Firestore is reachable only through the server.
   **Done when:** an unauthenticated client and a signed-in client are both denied every read and write on `games`, `events`, and `players`.
 - [ ] **S24 [AI] (S): Tokens + responsive shell.** `tokens.css`, `main.css` reset, the layout from DESIGN §4 with empty component slots, plus AppHeader and Toast.
