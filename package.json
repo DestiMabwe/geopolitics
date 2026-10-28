@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "emulators": "firebase emulators:start --project demo-geopolitics",
+    "dev:emu": "firebase emulators:exec --only firestore,auth --project demo-geopolitics \"node --watch src/server.js\"",
     "test:integration": "firebase emulators:exec --only firestore,auth --project demo-geopolitics \"vitest run -c vitest.integration.config.js\"",
     "test:all": "npm test && npm run test:integration"
   },

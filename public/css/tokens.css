@@ -95,6 +95,7 @@
   /* ── Layout ──────────────────────────────────── */
   --content-max: 1200px;
   --tap-min: 44px;   /* minimum touch target */
+  --form-max: 25rem; /* 400px: log in / sign up column (§4) */
 }
 
 @media (prefers-reduced-motion: reduce) {

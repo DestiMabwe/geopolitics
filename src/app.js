@@ -1,5 +1,6 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { apiRouter } from './routes/api.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
@@ -17,6 +18,10 @@ export function createApp() {
   app.use(express.json());
   app.use('/api', apiRouter);
   app.use(express.static(publicDir));
+  // Mirrors the vercel.json rewrite, so a shared game link opens in local dev too.
+  app.get('/game/*rest', (req, res) => {
+    res.sendFile(join(publicDir, 'index.html'));
+  });
   // Last, so it catches errors from every route above.
   app.use(errorHandler);
   return app;

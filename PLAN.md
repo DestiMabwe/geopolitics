@@ -82,7 +82,7 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 | Fri 23 Oct | S06, S07 | 3 | Engine can create a game and resolve a roll |
 | Sat 24 Oct | S08, S17 | 4 | |
 | Sun 25 Oct | S18, S20a, S22 | 4 | **API works:** create a game and roll through HTTP |
-| Mon 26 Oct | S24, S25 | 3 | Sign up, log in, start a game in the browser |
+| Mon 26 Oct | S24, S25a, S25b0 | 3 | Sign up, log in, start a game in the browser |
 | Tue 27 Oct | S25b | 3 | **SLICE DONE:** I attack and roll in the browser and a logged-out visitor watches |
 | Wed 28 Oct | S09, S10, S11 | 4 | |
 | Thu 29 Oct | S12, S13, S13b | 4 | All of GAME_RULES §4–§9 tested for the human's side |
@@ -144,8 +144,10 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 - [x] **S24 [AI] (S): Tokens + responsive shell.** `tokens.css`, `main.css` reset, the layout from DESIGN §4 with empty component slots, plus AppHeader and Toast.
   **Done when:** there is no horizontal page scroll from 320px to 1440px, and no raw hex values appear outside `tokens.css`.
   *Done 2026-10-28. `tokens.css` (DESIGN §1 verbatim), `main.css` (reset, buttons, layout, AppHeader, Toast, placeholders), `index.html` slots, `js/dom.js` (`el()`, text only, no innerHTML), `AppHeader.js` (logged-out · default · game-over; buttons carry `data-action`, wired in S25), `Toast.js`, `app.js` mounts the logged-out header. `tests/unit/css.test.js`: no hex outside tokens, every `var(--x)` defined. Checked in Chrome at 10 widths 320–1440: no page scroll, turn-order strip scrolls on its own on mobile. Desktop side column uses `display: contents` wrappers below 1100px so slots reorder without duplicate DOM. Deferred: Express `/game/*` → `index.html` fallback for local dev (Vercel already rewrites); add in S25b.*
-- [ ] **S25 [AI shell → ME logic] (M): Sign up, log in, log out, API client, Home (StartScreen + GameList).**
-  **Done when:** I can create an email/password account, log in, search for a country, start a game, see it in My games, log out and in again, and continue it after a refresh. Starting a game while logged out is impossible (the button asks me to log in).
+- [ ] **S25a [AI shell → ME logic] (S): Sign up, log in, log out + API client.** *(Split from S25 on 2026-10-28.)* Emulator only; the prod web config waits for S31a. Views (`home` / `auth` / `game`) in `index.html`, AuthForm, `firebase.js` (SDK init, pinned gstatic), `npm run dev:emu`, and the `/game/*` → `index.html` fallback (pulled forward from S25b). I write `auth.js`, `api.js`, `authMessages.js` and the `app.js` flow.
+  **Done when:** I can create an email/password account, log in, see my email in the header, log out and in again, and stay logged in after a refresh. Bad input shows the DESIGN §3.1 messages.
+- [ ] **S25b0 [AI shell → ME logic] (S): Home: StartScreen + GameList.** *(Split from S25.)* `countrySearch.js`, `GET /countries` adds `value`, `GET /games` sends ISO timestamps.
+  **Done when:** I can search for a country, start a game, see it in My games, log out and in again, and continue it after a refresh. Starting a game while logged out is impossible (the button asks me to log in).
 - [ ] **S25b [AI shell → ME logic] (L): Game page v1 (the slice).** `/game/:id` opens for anyone. It shows the 10 countries as NationCards with owner and soldiers, a "You are spectating" banner and a **Log in to play** button for visitors, and a **Copy link** button for the owner. The owner gets Attack, Roll and Stop buttons, and sees the latest dice and a simple log of events. Visitors' pages poll every 2 seconds.
   **Done when:** I attack and roll in the browser, and a logged-out private window opens the link and sees each roll appear within a few seconds, with no action buttons for the visitor.
 

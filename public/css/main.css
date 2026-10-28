@@ -132,6 +132,10 @@ h3 {
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+/* Full bleed inside the game layout's gutter. */
+.layout .slot--header {
   margin-inline: calc(-1 * var(--space-4));
 }
 
@@ -203,7 +207,7 @@ h3 {
     gap: var(--space-4);
   }
 
-  .slot--header,
+  .layout .slot--header,
   .slot--action {
     grid-column: auto;
     position: static;
@@ -227,6 +231,52 @@ h3 {
     min-height: 0;
     overflow-y: auto;
   }
+}
+
+/* ── Pages: Home and Log in (DESIGN §3.1, §3.2) ── */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding: var(--space-5) var(--space-4);
+}
+
+.page--narrow {
+  max-width: var(--form-max);
+}
+
+@media (min-width: 1100px) {
+  .page {
+    padding: var(--space-7) var(--space-6);
+  }
+
+  .page--narrow {
+    max-width: calc(var(--form-max) + 2 * var(--space-6));
+  }
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-block: var(--space-6);
+}
+
+.intro__title {
+  font-size: var(--text-2xl);
+}
+
+.intro__text {
+  max-width: var(--form-max);
+  color: var(--color-text-muted);
+}
+
+.intro__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
 /* ── Placeholders: removed as each component lands ── */
@@ -344,6 +394,80 @@ h3 {
     border-top: 0;
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   }
+}
+
+/* ── AuthForm ──────────────────────────────────── */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.auth-form__title {
+  font-size: var(--text-xl);
+}
+
+.auth-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.auth-form__label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.auth-form__field input {
+  min-height: var(--tap-min);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.auth-form__field input[aria-invalid] {
+  border-color: var(--color-danger);
+}
+
+.auth-form__field-error,
+.auth-form__error {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+.auth-form__field-error:empty,
+.auth-form__error:empty {
+  display: none;
+}
+
+.auth-form__submit {
+  width: 100%;
+}
+
+.auth-form--submitting .auth-form__submit::after {
+  content: "…";
+}
+
+.auth-form__toggle {
+  align-self: center;
+  min-height: var(--tap-min);
+  padding-inline: var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--color-focus);
+  font-size: var(--text-sm);
+  text-decoration: underline;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* ── Toast ─────────────────────────────────────── */
