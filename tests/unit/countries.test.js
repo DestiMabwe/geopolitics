@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 import data from '../../src/data/countries.json' with { type: 'json' };
+import { soldierValue } from '../../src/game/soldiers.js';
 
 const { countries } = data;
 const byCode = Object.fromEntries(countries.map((c) => [c.code, c]));
@@ -122,9 +123,17 @@ describe('GET /api/countries', () => {
   it('answers with 200 and the whole catalogue', async () => {
     const res = await request(createApp()).get('/api/countries');
     expect(res.status).toBe(200);
-    expect(res.body.countries).toEqual(countries);
+    expect(res.body.countries.map(({ value, ...c }) => c)).toEqual(countries);
     expect(res.body.source).toBe(data.source);
     expect(res.body.retrievedOn).toBe(data.retrievedOn);
+  });
+
+  it('adds each country\'s soldier value (GAME_RULES §1.2), so the browser never computes it', async () => {
+    const res = await request(createApp()).get('/api/countries');
+    const sent = Object.fromEntries(res.body.countries.map((c) => [c.code, c.value]));
+    expect(sent.IND).toBe(9);
+    expect(sent.VAT).toBe(1);
+    expect(sent.ZAF).toBe(soldierValue(byCode.ZAF.population));
   });
 
   it('needs no login', async () => {

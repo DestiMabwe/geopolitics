@@ -4,6 +4,7 @@ import { getDb } from '../config/firebase.js';
 import countries from '../data/countries.json' with { type: 'json' };
 import { requireAuth, optionalAuth } from '../middleware/requireAuth.js';
 import * as games from '../controllers/gamesController.js';
+import { soldierValue } from '../game/soldiers.js';
 
 export const apiRouter = Router();
 
@@ -20,9 +21,14 @@ apiRouter.get('/health/db', async (req, res) => {
   res.json({ ok: snap.exists, firestore: 'ok' });
 });
 
-// ARCHITECTURE §3: public country catalogue. `value` (soldierValue) is added once S04 exists.
+// ARCHITECTURE §3: public country catalogue, with each soldier value (GAME_RULES §1.2) worked out
+// here so the browser never computes a number it shows.
+const catalogue = {
+  ...countries,
+  countries: countries.countries.map((c) => ({ ...c, value: soldierValue(c.population) })),
+};
 apiRouter.get('/countries', (req, res) => {
-  res.json(countries);
+  res.json(catalogue);
 });
 
 // ARCHITECTURE §3: games. Creating and listing need a login; reading a game or its events is public.
@@ -35,3 +41,5 @@ apiRouter.get('/games/:id/events', games.listEvents);
 apiRouter.post('/games/:id/attack', requireAuth, games.startAttack);
 apiRouter.post('/games/:id/attack/roll', requireAuth, games.rollAttack);
 apiRouter.post('/games/:id/attack/stop', requireAuth, games.stopAttack);
+apiRouter.post('/games/:id/attack/occupy', requireAuth, games.occupy);
+apiRouter.post('/games/:id/skip', requireAuth, games.skip);

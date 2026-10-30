@@ -2,6 +2,7 @@ import { randomInt } from 'node:crypto';
 import * as gameModel from '../models/gameModel.js';
 import { createGame as newGameState } from '../game/setup.js';
 import * as attack from '../game/attack.js';
+import * as turn from '../game/turn.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import countryData from '../data/countries.json' with { type: 'json' };
 
@@ -14,8 +15,14 @@ import countryData from '../data/countries.json' with { type: 'json' };
  * @returns {object}
  */
 export function toPublicGame(doc, uid) {
-  const { ownerUid, ...game } = doc;
-  return { ...game, isOwner: uid !== null && uid === ownerUid };
+  const { ownerUid, createdAt, updatedAt, ...game } = doc;
+  return { ...game, createdAt: toIso(createdAt), updatedAt: toIso(updatedAt), isOwner: uid !== null && uid === ownerUid };
+}
+
+// Firestore Timestamps would reach the browser as { _seconds, _nanoseconds }. A value that
+// isn't a Timestamp (a fresh runAction result has none, see gameModel) passes through as is.
+function toIso(value) {
+  return typeof value?.toDate === 'function' ? value.toDate().toISOString() : value;
 }
 
 /**
@@ -147,6 +154,47 @@ export async function stopAttack(req, res) {
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     attack.stopAttack(state)
+  );
+  res.json({ game: toPublicGame(game, req.uid), events });
+}
+
+/**
+ * POST /games/:id/attack/occupy (token + owner). Body `{ version, count, placements: { CODE: n } }`.
+ * Moves `count` in, places the bonus, ends the turn. GAME_RULES §5.6, ARCHITECTURE §3.
+ * 400 bad body · 403 · 409 stale / not in occupy · 422 count out of range or placements that don't sum to the bonus.
+ * Responds `200 { game, events }`.
+ */
+export async function occupy(req, res) {
+  const { version, count, placements, ...rest } = req.body ?? {};
+  if (Object.keys(rest).length > 0) {
+    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
+  }
+  const isMap = placements !== null && typeof placements === 'object' && !Array.isArray(placements);
+  if (!Number.isInteger(version) || version <= 0 || typeof count !== 'number' || !isMap) {
+    throw new HttpError(400, 'bad_request', 'invalid body');
+  }
+
+  const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
+    attack.occupy(state, count, placements)
+  );
+  res.json({ game: toPublicGame(game, req.uid), events });
+}
+
+/**
+ * POST /games/:id/skip (token + owner). Body `{ version }`. Ends the turn without attacking.
+ * GAME_RULES §4.2. 400 · 403 · 409 stale / not in manoeuvre. Responds `200 { game, events }`.
+ */
+export async function skip(req, res) {
+  const { version, ...rest } = req.body ?? {};
+  if (Object.keys(rest).length > 0) {
+    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
+  }
+  if (!Number.isInteger(version) || version <= 0) {
+    throw new HttpError(400, 'bad_request', 'invalid body');
+  }
+
+  const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
+    turn.skip(state)
   );
   res.json({ game: toPublicGame(game, req.uid), events });
 }

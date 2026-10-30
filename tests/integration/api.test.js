@@ -112,6 +112,16 @@ describe('GET /api/games', () => {
     expect(res.body.games.map((g) => g.id)).toEqual([second.body.game.id, first.body.game.id]);
     expect(res.body.games.every((g) => g.isOwner === true)).toBe(true);
   });
+
+  it('sends createdAt and updatedAt as ISO strings', async () => {
+    const dave = await signUp();
+    await createAs(dave, 'ZAF');
+    const res = await request(app).get('/api/games').set('Authorization', `Bearer ${dave.idToken}`);
+    const [game] = res.body.games;
+    for (const field of ['createdAt', 'updatedAt']) {
+      expect(game[field]).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    }
+  });
 });
 
 describe('GET /api/games/:id (public)', () => {
