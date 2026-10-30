@@ -11,7 +11,7 @@
 <body>
   <!-- One view shows at a time; app.js picks it. Each view has its own header slot. -->
 
-  <!-- DESIGN §3.2 Home. StartScreen and GameList arrive in S25b0. -->
+  <!-- DESIGN §3.2 Home. app.js fills GameList and StartScreen for a logged-in player. -->
   <div class="view" data-view="home">
     <header class="slot slot--header" data-slot="header"></header>
     <main class="page">
@@ -23,12 +23,8 @@
           <button type="button" class="button button--primary" data-action="signup">Sign up</button>
         </div>
       </section>
-      <section data-slot="games" hidden>
-        <p class="placeholder">GameList (S25b0)</p>
-      </section>
-      <section data-slot="start" hidden>
-        <p class="placeholder">StartScreen (S25b0)</p>
-      </section>
+      <section data-slot="games" hidden></section>
+      <section data-slot="start" hidden></section>
     </main>
   </div>
 
@@ -38,56 +34,19 @@
     <main class="page page--narrow" data-slot="auth-form"></main>
   </div>
 
-  <!-- DESIGN §3.3 Game screen, layout from §4. Placeholders go as each component lands. -->
+  <!-- DESIGN §3.3 Game screen, layout from §4. gamePage.js fills every slot. -->
   <div class="view layout" data-view="game" hidden>
     <div class="layout__main">
       <header class="slot slot--header" data-slot="header"></header>
-
       <section class="slot slot--spectator" data-slot="spectator-banner" hidden></section>
-
-      <section class="slot slot--turn-order" data-slot="turn-order" aria-label="Turn order">
-        <ol class="turn-order">
-          <li class="placeholder placeholder--chip">P1</li>
-          <li class="placeholder placeholder--chip">P2</li>
-          <li class="placeholder placeholder--chip">P3</li>
-          <li class="placeholder placeholder--chip">P4</li>
-          <li class="placeholder placeholder--chip">P5</li>
-          <li class="placeholder placeholder--chip">P6</li>
-          <li class="placeholder placeholder--chip">P7</li>
-          <li class="placeholder placeholder--chip">P8</li>
-          <li class="placeholder placeholder--chip">P9</li>
-          <li class="placeholder placeholder--chip">P10</li>
-        </ol>
-      </section>
-
-      <main class="slot slot--board" data-slot="board" aria-label="Nations">
-        <ol class="nation-board">
-          <li class="placeholder placeholder--card">Nation 1</li>
-          <li class="placeholder placeholder--card">Nation 2</li>
-          <li class="placeholder placeholder--card">Nation 3</li>
-          <li class="placeholder placeholder--card">Nation 4</li>
-          <li class="placeholder placeholder--card">Nation 5</li>
-          <li class="placeholder placeholder--card">Nation 6</li>
-          <li class="placeholder placeholder--card">Nation 7</li>
-          <li class="placeholder placeholder--card">Nation 8</li>
-          <li class="placeholder placeholder--card">Nation 9</li>
-          <li class="placeholder placeholder--card">Nation 10</li>
-        </ol>
-      </main>
-
-      <section class="slot slot--action" data-slot="action-bar" aria-label="Actions">
-        <p class="placeholder">ActionBar</p>
-      </section>
+      <section class="slot slot--turn-order" data-slot="turn-order" aria-label="Turn order"></section>
+      <main class="slot slot--board" data-slot="board" aria-label="Nations"></main>
+      <section class="slot slot--action" data-slot="action-bar" aria-label="Actions" hidden></section>
     </div>
 
     <div class="layout__side">
-      <section class="slot slot--dice" data-slot="dice" aria-label="Dice">
-        <p class="placeholder">DicePanel</p>
-      </section>
-
-      <section class="slot slot--feed" data-slot="feed" aria-label="Commentary">
-        <p class="placeholder">CommentaryFeed</p>
-      </section>
+      <section class="slot slot--dice" data-slot="dice" aria-label="Dice"></section>
+      <section class="slot slot--feed" data-slot="feed" aria-label="What happened"></section>
     </div>
   </div>
 

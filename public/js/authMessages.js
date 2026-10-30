@@ -13,7 +13,15 @@
  * @returns {{ email?: string, password?: string }} empty when both are valid
  */
 export function validateCredentials({ email, password }) {
-  throw new Error('not implemented');
+  // Collect both, so the user sees every problem at once.
+  const errors = {};
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+    errors.email = 'Enter a valid email';
+  }
+  if (password.length < 6) {
+    errors.password = 'Password must be at least 6 characters';
+  }
+  return errors;
 }
 
 /**
@@ -25,5 +33,20 @@ export function validateCredentials({ email, password }) {
  * @returns {{ message: string, toast: boolean }}
  */
 export function authErrorMessage(code) {
-  throw new Error('not implemented');
+  switch (code) {
+    // One message for all three, so the form never reveals which emails have accounts.
+    // Real Firebase sends invalid-credential; the emulator still sends the other two.
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return { message: 'Wrong email or password', toast: false };
+    case 'auth/email-already-in-use':
+      return { message: 'That email already has an account. Log in instead', toast: false };
+    case 'auth/network-request-failed':
+      return { message: 'Can’t reach the server. Check your connection', toast: true };
+    case 'auth/too-many-requests':
+      return { message: 'Too many attempts. Wait a minute and try again', toast: true };
+    default:
+      return { message: 'Something went wrong. Try again', toast: true };
+  }
 }

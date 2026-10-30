@@ -279,25 +279,6 @@ h3 {
   gap: var(--space-3);
 }
 
-/* ── Placeholders: removed as each component lands ── */
-.placeholder {
-  padding: var(--space-4);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-}
-
-.placeholder--chip {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-lg);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-}
-
-.placeholder--card {
-  min-height: calc(3 * var(--tap-min));
-}
 
 /* ── AppHeader ─────────────────────────────────── */
 .app-header {
@@ -516,4 +497,435 @@ button:disabled {
     opacity: 0;
     transform: translateY(var(--space-2));
   }
+}
+
+/* ── Shared panel look ─────────────────────────── */
+.start,
+.game-list,
+.dice-panel,
+.event-log,
+.spectator-banner,
+.game-message {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.start__search,
+.start__sort,
+.occupy-form input,
+.occupy-form select {
+  min-height: var(--tap-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.start__title,
+.game-list__title,
+.dice-panel__title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+}
+
+/* ── StartScreen (DESIGN §3.2) ─────────────────── */
+.start {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.start__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.start__search {
+  flex: 1 1 12rem;
+}
+
+.start__list {
+  max-height: 22rem;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.start__country {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: none;
+  text-align: left;
+}
+
+.start__country:hover,
+[aria-selected="true"] > .start__country {
+  background: var(--color-surface-raised);
+}
+
+[aria-selected="true"] > .start__country {
+  box-shadow: inset var(--space-1) 0 0 var(--color-accent);
+}
+
+.start__meta,
+.start__empty,
+.game-list__meta,
+.game-list__empty {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.start__empty {
+  padding: var(--space-3);
+}
+
+.start__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.start--submitting [type="submit"]::after {
+  content: "…";
+}
+
+/* ── GameList ──────────────────────────────────── */
+.game-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.game-list__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.game-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.game-list__info {
+  display: flex;
+  flex-direction: column;
+}
+
+.game-list__country {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+
+/* ── SpectatorBanner ───────────────────────────── */
+.spectator-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.spectator-banner__text {
+  flex: 1;
+  font-weight: var(--weight-medium);
+}
+
+.live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-success);
+  font-size: var(--text-sm);
+}
+
+.live-dot::before {
+  content: "";
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.live-dot--pulse::before {
+  animation: pulse var(--duration-dice) var(--ease-out);
+}
+
+.live-dot--stale {
+  color: var(--color-warning);
+}
+
+@keyframes pulse {
+  50% {
+    transform: scale(1.8);
+  }
+}
+
+/* ── Owner colours (DESIGN §1): a mark per card and chip, one class per owner slot ── */
+.owner-mark {
+  display: block;
+  height: var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.turn-chip .owner-mark {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+}
+
+.owner--human { background-color: var(--owner-human); }
+.owner--1 { background-color: var(--owner-1); }
+.owner--2 { background-color: var(--owner-2); }
+.owner--3 { background-color: var(--owner-3); }
+.owner--4 { background-color: var(--owner-4); }
+.owner--5 { background-color: var(--owner-5); }
+.owner--6 { background-color: var(--owner-6); }
+.owner--7 { background-color: var(--owner-7); }
+.owner--8 { background-color: var(--owner-8); }
+.owner--9 { background-color: var(--owner-9); }
+
+/* ── TurnOrderBar ──────────────────────────────── */
+.turn-order {
+  list-style: none;
+}
+
+.turn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.turn-chip--current {
+  border-color: var(--color-accent);
+  background: var(--color-surface-raised);
+  font-weight: var(--weight-bold);
+}
+
+.turn-chip--eliminated {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.turn-chip__profile {
+  color: var(--color-text-muted);
+  text-transform: capitalize;
+}
+
+.turn-chip__profile--warlord { color: var(--profile-warlord); }
+.turn-chip__profile--fortress { color: var(--profile-fortress); }
+.turn-chip__profile--opportunist { color: var(--profile-opportunist); }
+
+/* ── NationCard (DESIGN §2) ────────────────────── */
+.nation-board {
+  list-style: none;
+}
+
+.nation-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: calc(3 * var(--tap-min));
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+/* A card that can't be picked right now still reads at full strength: visitors see the whole board. */
+.nation-card:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.nation-card__head,
+.nation-card__stats {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.nation-card__name {
+  font-family: var(--font-display);
+  line-height: var(--leading-tight);
+}
+
+.nation-card__code,
+.nation-card__borders,
+.nation-card__owner {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+
+.nation-card__soldiers {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+}
+
+.nation-card__value {
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+}
+
+.nation-card--selectable-source,
+.nation-card--valid-target {
+  border-color: var(--color-focus);
+}
+
+.nation-card--valid-target {
+  border-style: dashed;
+}
+
+.nation-card--source {
+  background: var(--color-surface-raised);
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.nation-card--target,
+.nation-card--under-attack {
+  box-shadow: 0 0 0 2px var(--color-danger);
+}
+
+.nation-card--under-attack {
+  animation: under-attack calc(2 * var(--duration-dice)) var(--ease-out) infinite;
+}
+
+@keyframes under-attack {
+  50% {
+    box-shadow: 0 0 0 4px var(--color-danger);
+  }
+}
+
+@media (hover: hover) {
+  .nation-card:not(:disabled):hover {
+    background: var(--color-surface-raised);
+  }
+}
+
+/* ── ActionBar ─────────────────────────────────── */
+.action-bar,
+.occupy-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.action-bar__hint {
+  flex: 1 1 100%;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.occupy-form label {
+  font-size: var(--text-sm);
+}
+
+/* ── DicePanel ─────────────────────────────────── */
+.dice-panel,
+.dice-panel__dice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.dice-panel__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dice-panel__label {
+  flex: 0 0 100%;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.die {
+  display: inline-grid;
+  place-items: center;
+  width: var(--dice-size-sm);
+  height: var(--dice-size-sm);
+  border-radius: var(--radius-sm);
+  background: var(--dice-face);
+  color: var(--dice-pip);
+  font-family: var(--font-mono);
+  font-weight: var(--weight-bold);
+  box-shadow: 0 0 0 2px var(--dice-tie-ring);
+}
+
+.die--win { box-shadow: 0 0 0 2px var(--dice-win-ring); }
+.die--lose { box-shadow: 0 0 0 2px var(--dice-lose-ring); }
+
+@media (min-width: 768px) {
+  .die {
+    width: var(--dice-size);
+    height: var(--dice-size);
+  }
+}
+
+.dice-panel__total {
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+}
+
+.dice-panel__status,
+.game-message {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.dice-panel__status--rolling {
+  animation: pulse var(--duration-dice) var(--ease-out) infinite;
+}
+
+/* ── Event log (the slice's feed; CommentaryFeed replaces it in S28) ── */
+.event-log {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.event-log__line--turnStart {
+  margin-top: var(--space-2);
+  color: var(--color-accent);
+  font-weight: var(--weight-medium);
+}
+
+.event-log__line--conquest,
+.event-log__line--gameOver {
+  font-weight: var(--weight-bold);
 }

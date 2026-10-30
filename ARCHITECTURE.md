@@ -49,7 +49,8 @@ The country catalogue `src/data/countries.json` (code, name, population, capital
 | `attack.js` | `startAttack`, `rollAttack(state, rollDie)`, `stopAttack`, `occupy` | §5 |
 | `transfer.js` | `transfer(state, from, to, count)` | §6 |
 | `reinforce.js` | `placeReinforcements(state, placements)` | §7 |
-| `turn.js` | `endTurn(state)` (next player, round, reinforcement setup) | §4 |
+| `placements.js` | `checkPlacements(state, player, placements, amount)`, `applyPlacements` (shared by occupy's bonus and reinforcements) | §5.6, §7.3 |
+| `turn.js` | `endTurn(state)` (next player, round, reinforcement setup), `skip(state)` | §4 |
 | `npc.js` | `chooseTarget`, `shouldStop`, `npcReinforce`, `npcOccupy`, `playNpcTurn(state, rollDie)` | §8 |
 | `victory.js` | `checkElimination`, `checkGameOver` | §2.4, §9 |
 | `commentary.js` | `toText(event, catalogue)`, the template line used as fallback | §10 |

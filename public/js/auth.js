@@ -18,7 +18,8 @@ import {
  * @returns {Promise<{ uid: string, email: string }>}
  */
 export async function signUp(email, password) {
-  throw new Error('not implemented');
+  const { user } = await createUserWithEmailAndPassword(auth, email.trim(), password);
+  return toUser(user);
 }
 
 /**
@@ -27,12 +28,20 @@ export async function signUp(email, password) {
  * @returns {Promise<{ uid: string, email: string }>}
  */
 export async function logIn(email, password) {
-  throw new Error('not implemented');
+  // Trimmed the same way as signUp, or " a@b.com " could sign up but never log in.
+  // The password is not trimmed: spaces are legal in it.
+  const { user } = await signInWithEmailAndPassword(auth, email.trim(), password);
+  return toUser(user);
+}
+
+/** Only what the app needs from a Firebase user. */
+function toUser(user) {
+  return { uid: user.uid, email: user.email };
 }
 
 /** @returns {Promise<void>} */
 export async function logOut() {
-  throw new Error('not implemented');
+  await signOut(auth);
 }
 
 /**
@@ -43,7 +52,8 @@ export async function logOut() {
  * @returns {() => void} call it to stop listening
  */
 export function onUserChange(callback) {
-  throw new Error('not implemented');
+  // onAuthStateChanged already calls back once straight away, so no extra call here.
+  return onAuthStateChanged(auth, (user) => callback(user ? toUser(user) : null));
 }
 
 /**
@@ -53,5 +63,5 @@ export function onUserChange(callback) {
  * @returns {Promise<string | null>}
  */
 export async function getToken() {
-  throw new Error('not implemented');
+  return auth.currentUser ? auth.currentUser.getIdToken() : null;
 }
