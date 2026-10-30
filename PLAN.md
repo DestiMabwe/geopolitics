@@ -163,8 +163,9 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
   *Done 2026-10-28 by AI at my request, pulled forward so the section C slice can conquer (exception to the usual split, logged in AI_LOG; walk-through still to do). `rollAttack` → `conquer()` (owner change, `attack.bonus`, phase `occupy`, then `checkElimination` / `checkGameOver`); `occupy(state, count, placements)`; placement checks live in `placements.js` for S11 to reuse. A conquest that wins the game stops there (no occupy).*
 - [ ] **S10 [AI tests → ME] (S): `transfer`** (§6).
   **Done when:** tests cover a legal transfer, leaving < 1, unowned from/to, same country, a non-integer count, and a 409 during `attacking`.
-- [ ] **S11 [AI tests → ME] (S): `placeReinforcements`** (§7).
+- [x] **S11 [AI tests → ME] (S): `placeReinforcements`** (§7).
   **Done when:** tests cover an exact sum (ok), an under- or over-sum, an unowned country, negative numbers, and that the phase moves to `manoeuvre`.
+  *Done 2026-10-30: I wrote the first version; AI fixed it at my request (exception to the usual split, logged in AI_LOG). Reuses `placements.js`. `currentPlayer` is still duplicated across `attack.js`, `turn.js` and `reinforce.js`.*
 - [x] **S12 [AI tests → ME] (S): `endTurn` + skip** (§4.6, §7.1).
   **Done when:** tests cover the next player, skipping eliminated players, `round += 1` on wrap, no reinforcements in round 1, and `pendingReinforcements = 2 × owned` from round 2.
   *Done 2026-10-28 by AI at my request, pulled forward because Stop needs it (logged in AI_LOG). The wrap counts even when position 0 is eliminated. The S08 unit tests still mock `endTurn`; the attack API tests now use the real one. `POST /skip` added too (an S19 endpoint), so a player whose countries all have 1 soldier isn't stuck.*
@@ -191,7 +192,7 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 
 - [ ] **S19 [AI tests → ME] (S): Reinforce, transfer, skip endpoints.**
   **Done when:** each returns `{ game, events }` and the phase errors match ARCHITECTURE §3.
-  *In progress: `/skip` was done with S12 (5 HTTP tests). `/reinforce` and `/transfer` still need S11 and S10.*
+  *In progress: `/skip` was done with S12 (5 HTTP tests). `/reinforce` can start now S11 is done; `/transfer` still needs S10.*
 - [x] **S20b [AI tests → ME] (S): Occupy endpoint** (`/attack/occupy`).
   **Done when:** it takes `count` and `placements`, returns 422 for a count out of range or placements that don't sum to the bonus, and ends the turn.
   *Done 2026-10-28 by AI with S09, so a conquest in the slice can finish (logged in AI_LOG). 8 HTTP tests.*
