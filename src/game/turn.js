@@ -1,4 +1,5 @@
 import { WrongPhaseError } from './errors.js';
+import { currentPlayer } from './players.js';
 import { reinforcementAmount } from './soldiers.js';
 
 /**
@@ -46,7 +47,7 @@ export function skip(state) {
   if (state.phase !== 'manoeuvre') {
     throw new WrongPhaseError(`cannot skip in phase ${state.phase}`);
   }
-  const player = state.turnOrder[state.currentTurn];
+  const player = currentPlayer(state);
   const next = endTurn(state);
   return { state: next.state, events: [{ type: 'skip', player }, ...next.events] };
 }
