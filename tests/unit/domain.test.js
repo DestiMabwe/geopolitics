@@ -187,6 +187,15 @@ describe('Game: actions delegate to the engine', () => {
     expect(game.skip().map((e) => e.type)).toEqual(['skip', 'turnStart']);
     expect(game.currentPlayer.id).toBe('npc:BBB');
   });
+
+  it('playNpcTurn updates the game and returns the events', () => {
+    const game = loadGame({ currentTurn: 1 }); // npc:BBB, a Warlord, whose best target is EEE
+    const events = game.playNpcTurn(scripted(6, 1));
+    expect(events.map((e) => e.type)).toEqual(['attackStart', 'roll', 'conquest', 'occupy', 'turnStart']);
+    expect(game.nation('BBB').soldiers).toBe(1);
+    expect(game.nation('EEE').soldiers).toBe(3);
+    expect(game.currentPlayer.id).toBe('npc:CCC');
+  });
 });
 
 describe('Game: rejected moves', () => {

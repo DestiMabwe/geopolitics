@@ -4,6 +4,7 @@ import { placeReinforcements } from '../game/reinforce.js';
 import { transfer } from '../game/transfer.js';
 import { skip } from '../game/turn.js';
 import { currentPlayer } from '../game/players.js';
+import { playNpcTurn } from '../game/npc.js';
 import { Nation } from './Nation.js';
 import { Player } from './Player.js';
 import { Battle } from './Battle.js';
@@ -197,5 +198,14 @@ export class Game {
    */
   skip() {
     return this.#apply(skip(this.#state));
+  }
+
+  /**
+   * GAME_RULES §8
+   * @param {() => number} rollDie
+   * @returns {object[]} events
+   */
+  playNpcTurn(rollDie) {
+    return this.#apply(playNpcTurn(this.#state, rollDie));
   }
 }
