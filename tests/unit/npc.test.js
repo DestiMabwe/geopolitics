@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { chooseTarget } from '../../src/game/npc.js';
-import { makeState } from '../helpers.js';
+import { chooseTarget, npcOccupy, npcReinforce, playNpcTurn, shouldStop } from '../../src/game/npc.js';
+import { WrongPhaseError } from '../../src/game/errors.js';
+import { makeState, scripted } from '../helpers.js';
 
 const ME = 'npc:ME';
 
@@ -291,6 +292,255 @@ describe('chooseTarget (GAME_RULES §8.1)', () => {
     const state = board('warlord', { AAA: [ME, 6], BBB: ['human', 4] });
     const before = structuredClone(state);
     chooseTarget(state, ME);
+    expect(state).toEqual(before);
+  });
+});
+
+describe('npcReinforce (GAME_RULES §8.1)', () => {
+  // ZZZ is someone else's, so it must be ignored however many soldiers it has.
+  const strongest = (profile) =>
+    board(profile, { AAA: [ME, 2], BBB: [ME, 5], CCC: [ME, 1], ZZZ: ['human', 9] });
+  const weakest = () =>
+    board('fortress', { AAA: [ME, 5], BBB: [ME, 2], CCC: [ME, 3], ZZZ: ['human', 1] });
+
+  it('Warlord puts everything on its country with the most soldiers', () => {
+    expect(npcReinforce(strongest('warlord'), ME, 4)).toEqual({ BBB: 4 });
+  });
+
+  it('Opportunist puts everything on its country with the most soldiers', () => {
+    expect(npcReinforce(strongest('opportunist'), ME, 4)).toEqual({ BBB: 4 });
+  });
+
+  it('breaks a most-soldiers tie by code', () => {
+    const state = board('warlord', { BBB: [ME, 5], AAA: [ME, 5] });
+    expect(npcReinforce(state, ME, 3)).toEqual({ AAA: 3 });
+  });
+
+  it('Fortress places one at a time on its country with the fewest soldiers', () => {
+    expect(npcReinforce(weakest(), ME, 2)).toEqual({ BBB: 2 }); // 2 → 3, then the tie with CCC → 4
+  });
+
+  it('Fortress counts soldiers it has just placed', () => {
+    expect(npcReinforce(weakest(), ME, 3)).toEqual({ BBB: 2, CCC: 1 }); // BBB is now the strongest of the two
+  });
+
+  it('breaks a fewest-soldiers tie by code', () => {
+    const state = board('fortress', { BBB: [ME, 2], AAA: [ME, 2] });
+    expect(npcReinforce(state, ME, 3)).toEqual({ AAA: 2, BBB: 1 });
+  });
+});
+
+describe('shouldStop (GAME_RULES §8.1, §8.2)', () => {
+  // AAA is attacking BBB, `rolls` rolls in.
+  const fighting = (profile, mine, theirs, rolls = 0) => ({
+    ...board(profile, { AAA: [ME, mine], BBB: ['npc:BBB', theirs] }),
+    currentTurn: 1,
+    phase: 'attacking',
+    attack: { from: 'AAA', to: 'BBB', rolls, bonus: null },
+  });
+
+  it('Warlord never stops before the cap', () => {
+    expect(shouldStop(fighting('warlord', 2, 9), ME)).toBe(false);
+  });
+
+  it('Fortress keeps rolling at s = 2t + 1', () => {
+    expect(shouldStop(fighting('fortress', 5, 2), ME)).toBe(false);
+  });
+
+  it('Fortress stops at s = 2t', () => {
+    expect(shouldStop(fighting('fortress', 4, 2), ME)).toBe(true);
+  });
+
+  it('Opportunist keeps rolling at s = t + 1', () => {
+    expect(shouldStop(fighting('opportunist', 4, 3), ME)).toBe(false);
+  });
+
+  it('Opportunist stops at s = t', () => {
+    expect(shouldStop(fighting('opportunist', 3, 3), ME)).toBe(true);
+  });
+
+  it.each(['warlord', 'fortress', 'opportunist'])('every profile stops at 20 rolls and not at 19: %s', (profile) => {
+    expect(shouldStop(fighting(profile, 9, 1, 19), ME)).toBe(false);
+    expect(shouldStop(fighting(profile, 9, 1, 20), ME)).toBe(true);
+  });
+});
+
+describe('npcOccupy (GAME_RULES §8.1, §5.6)', () => {
+  // AAA has just conquered BBB, which holds 0 soldiers until occupy moves some in.
+  const conquered = (profile, soldiers, others = {}, bonus = 2) => ({
+    ...board(profile, { AAA: [ME, soldiers], BBB: [ME, 0], ZZZ: ['human', 1], ...others }),
+    currentTurn: 1,
+    phase: 'occupy',
+    attack: { from: 'AAA', to: 'BBB', rolls: 1, bonus },
+  });
+
+  it('Warlord moves in half of soldiers(s) − 1, rounded down', () => {
+    expect(npcOccupy(conquered('warlord', 8), ME).count).toBe(3);
+  });
+
+  it('Warlord moves in at least 1', () => {
+    expect(npcOccupy(conquered('warlord', 2), ME).count).toBe(1);
+  });
+
+  it.each(['fortress', 'opportunist'])('Fortress and Opportunist move in 1: %s', (profile) => {
+    expect(npcOccupy(conquered(profile, 8), ME).count).toBe(1);
+  });
+
+  it.each(['warlord', 'opportunist'])('Warlord and Opportunist put the whole bonus on the new country: %s', (profile) => {
+    const state = conquered(profile, 8, { CCC: [ME, 20] }, 3);
+    expect(npcOccupy(state, ME).placements).toEqual({ BBB: 3 });
+  });
+
+  it('Fortress places the bonus by its Reinforce rule, counting the soldiers just moved in', () => {
+    // After the move-in: AAA 4, BBB 1, CCC 2. Without it BBB would start on 0 and take all 3.
+    const state = conquered('fortress', 5, { CCC: [ME, 2] }, 3);
+    expect(npcOccupy(state, ME)).toEqual({ count: 1, placements: { BBB: 2, CCC: 1 } });
+  });
+});
+
+describe('playNpcTurn (GAME_RULES §4, §8, §9.2)', () => {
+  // board(), on ME's turn. The turn order is the human, ME, then the other owners as listed.
+  const myTurn = (profile, owned, edges, fields = {}) => ({
+    ...board(profile, owned, edges),
+    currentTurn: 1,
+    ...fields,
+  });
+  const edges = [['AAA', 'BBB']];
+  const types = (events) => events.map((e) => e.type);
+
+  // §5.7's dice against a value 6 country: AAA ends on 3 soldiers, BBB falls, bonus 3.
+  const conquest = () => {
+    const state = myTurn(
+      'warlord',
+      { AAA: [ME, 4], BBB: ['npc:BBB', 2], CCC: ['npc:BBB', 9], HHH: ['human', 9] },
+      edges,
+    );
+    state.countries.BBB.value = 6;
+    return state;
+  };
+  const conquestDice = () => scripted(6, 2, 3, 5, 4, 4, 5, 2);
+
+  it('skips when no target is good enough', () => {
+    const state = myTurn('fortress', { AAA: [ME, 4], BBB: ['human', 2], ZZZ: ['npc:ZZZ', 9] }, edges);
+    expect(playNpcTurn(state, scripted()).events).toEqual([
+      { type: 'skip', player: ME },
+      { type: 'turnStart', player: 'npc:ZZZ', round: 1 },
+    ]);
+  });
+
+  it('plays a conquest: attackStart, rolls, conquest, occupy, turnStart', () => {
+    const { state, events } = playNpcTurn(conquest(), conquestDice());
+    const fight = { player: ME, from: 'AAA', to: 'BBB' };
+    expect(events).toEqual([
+      { type: 'attackStart', ...fight },
+      {
+        type: 'roll', ...fight,
+        attackerDice: [6, 2], defenderDice: [3, 5],
+        attackerLosses: 1, defenderLosses: 1, attackerLeft: 3, defenderLeft: 1,
+      },
+      {
+        type: 'roll', ...fight,
+        attackerDice: [4], defenderDice: [4],
+        attackerLosses: 0, defenderLosses: 0, attackerLeft: 3, defenderLeft: 1,
+      },
+      {
+        type: 'roll', ...fight,
+        attackerDice: [5], defenderDice: [2],
+        attackerLosses: 0, defenderLosses: 1, attackerLeft: 3, defenderLeft: 0,
+      },
+      { type: 'conquest', ...fight, previousOwner: 'npc:BBB', bonus: 3 },
+      { type: 'occupy', ...fight, count: 1, placements: { BBB: 3 } },
+      { type: 'turnStart', player: 'npc:BBB', round: 1 },
+    ]);
+    expect(state.countries.AAA.soldiers).toBe(2);
+    expect(state.countries.BBB).toMatchObject({ owner: ME, soldiers: 4 });
+  });
+
+  it('places reinforcements first from round 2, and they count when choosing a target', () => {
+    // AAA has 3, too few for a Fortress against BBB's 2. The 2 reinforcements make it 5.
+    const state = myTurn(
+      'fortress',
+      { AAA: [ME, 3], BBB: ['npc:BBB', 2], CCC: ['npc:BBB', 9], HHH: ['human', 9] },
+      edges,
+      { round: 2, phase: 'reinforce', pendingReinforcements: 2 },
+    );
+    const { events } = playNpcTurn(state, scripted(6, 6, 1, 1));
+    expect(types(events)).toEqual(['reinforce', 'attackStart', 'roll', 'conquest', 'occupy', 'turnStart']);
+    expect(events[0]).toEqual({ type: 'reinforce', player: ME, amount: 2, placements: { AAA: 2 } });
+  });
+
+  it('ends with attackFailed when the NPC runs down to 1 soldier', () => {
+    const start = myTurn('warlord', { AAA: [ME, 2], BBB: ['human', 2], ZZZ: ['npc:ZZZ', 9] }, edges);
+    const { state, events } = playNpcTurn(start, scripted(1, 6));
+    expect(types(events)).toEqual(['attackStart', 'roll', 'attackFailed', 'turnStart']);
+    expect(state.countries.AAA.soldiers).toBe(1);
+    expect(state.countries.BBB).toMatchObject({ owner: 'human', soldiers: 2 });
+  });
+
+  it('stops mid-attack when the profile says so', () => {
+    const start = myTurn('fortress', { AAA: [ME, 5], BBB: ['npc:BBB', 2], HHH: ['human', 9] }, edges);
+    const { state, events } = playNpcTurn(start, scripted(1, 1, 6, 6)); // 3 against 2: 3 < 5
+    expect(types(events)).toEqual(['attackStart', 'roll', 'attackStopped', 'turnStart']);
+    expect(state.countries.AAA.soldiers).toBe(3);
+    expect(state.countries.BBB).toMatchObject({ owner: 'npc:BBB', soldiers: 2 });
+  });
+
+  it('stops after 20 rolls of ties', () => {
+    const start = myTurn('warlord', { AAA: [ME, 2], BBB: ['human', 2], ZZZ: ['npc:ZZZ', 9] }, edges);
+    const { events } = playNpcTurn(start, scripted(...Array(40).fill(3))); // 1 die each, so 2 a roll
+    expect(types(events)).toEqual([
+      'attackStart',
+      ...Array(20).fill('roll'),
+      'attackStopped',
+      'turnStart',
+    ]);
+  });
+
+  it('Opportunist with equal soldiers stops before rolling any dice', () => {
+    const start = myTurn('opportunist', { AAA: [ME, 2], BBB: ['npc:BBB', 2], HHH: ['human', 9] }, edges);
+    const { events } = playNpcTurn(start, scripted());
+    expect(types(events)).toEqual(['attackStart', 'attackStopped', 'turnStart']);
+  });
+
+  it('eliminates an NPC, then still occupies and ends the turn', () => {
+    const start = myTurn('warlord', { AAA: [ME, 3], BBB: ['npc:BBB', 1], HHH: ['human', 9] }, edges);
+    const { state, events } = playNpcTurn(start, scripted(6, 1));
+    expect(types(events)).toEqual(['attackStart', 'roll', 'conquest', 'elimination', 'occupy', 'turnStart']);
+    expect(events[3]).toEqual({ type: 'elimination', player: 'npc:BBB', by: ME });
+    expect(events[5]).toEqual({ type: 'turnStart', player: 'human', round: 2 }); // npc:BBB is skipped
+    expect(state.players['npc:BBB'].eliminated).toBe(true);
+  });
+
+  it('ends the game as lost at once when the human loses their last country', () => {
+    const start = myTurn('warlord', { AAA: [ME, 3], BBB: ['human', 1], CCC: ['npc:CCC', 1] }, edges);
+    const { state, events } = playNpcTurn(start, scripted(6, 1));
+    expect(types(events)).toEqual(['attackStart', 'roll', 'conquest', 'elimination', 'gameOver']);
+    expect(events.at(-1)).toEqual({ type: 'gameOver', status: 'lost', winner: ME });
+    expect(state).toMatchObject({ status: 'lost', winner: ME, currentTurn: 1 });
+  });
+
+  it('passes the turn to the next player', () => {
+    // npc:ZZZ owns 2 countries, so it starts its turn with 4 reinforcements to place.
+    const start = myTurn(
+      'fortress',
+      { AAA: [ME, 1], BBB: ['human', 9], YYY: ['npc:ZZZ', 9], ZZZ: ['npc:ZZZ', 9] },
+      edges,
+      { round: 2, phase: 'reinforce', pendingReinforcements: 2 },
+    );
+    const { state } = playNpcTurn(start, scripted());
+    expect(state.turnOrder[state.currentTurn]).toBe('npc:ZZZ');
+    expect(state).toMatchObject({ round: 2, phase: 'reinforce', pendingReinforcements: 4 });
+  });
+
+  it("throws WrongPhaseError on the human's turn", () => {
+    const state = myTurn('warlord', { AAA: [ME, 4], BBB: ['human', 2] }, edges, { currentTurn: 0 });
+    expect(() => playNpcTurn(state, scripted())).toThrow(WrongPhaseError);
+  });
+
+  it('does not mutate state', () => {
+    const state = conquest();
+    const before = structuredClone(state);
+    playNpcTurn(state, conquestDice());
     expect(state).toEqual(before);
   });
 });
