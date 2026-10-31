@@ -181,8 +181,9 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 
 ## E. NPCs and commentary
 
-- [ ] **S14 [AI tests → ME] (M): `chooseTarget` per profile** (§8.1).
+- [x] **S14 [AI tests → ME] (M): `chooseTarget` per profile** (§8.1).
   **Done when:** all four §8.3 examples pass, plus a tie-break test and a "no leader when tied" test.
+  *Done 2026-10-31. 25 tests in `npc.test.js`. `chooseTarget(state, playerId)` returns `{ from, to }` or `null`, and S15 turns that into `startAttack` or `skip`. Each profile is a threshold plus a score, because Fortress's eligibility rule says the same as its threshold. `leader` is now exported from `victory.js` and shared with §9.2. A test board with only one other country owner makes that owner the leader, so boards need a second one. `leader([])` would throw, but that needs an NPC owning every country, and the game has already ended as `lost` by then.*
 - [ ] **S15 [AI tests → ME] (L): `npcReinforce`, `shouldStop`, `npcOccupy`, `playNpcTurn`** (§8.1, §8.2, §9.2).
   **Done when:** with scripted dice, a full NPC turn produces the exact expected event list, the 20-roll cap stops a run of ties, targets are always neighbours, the bonus is placed according to the profile, and the next player is set. **If an NPC conquers the human's last country, the game ends as `lost` at once and the NPC does nothing more** (§9.2, I-6).
 - [ ] **S16 [AI tests → ME] (S): `commentary.toText`, the template fallback** for every event type in §10.
