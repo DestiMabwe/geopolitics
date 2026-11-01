@@ -5,6 +5,7 @@ import * as attack from '../game/attack.js';
 import * as turn from '../game/turn.js';
 import * as reinforcements from '../game/reinforce.js';
 import * as transfers from '../game/transfer.js';
+import * as npc from '../game/npc.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import countryData from '../data/countries.json' with { type: 'json' };
 
@@ -178,6 +179,35 @@ export async function occupy(req, res) {
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     attack.occupy(state, count, placements)
+  );
+  res.json({ game: toPublicGame(game, req.uid), events });
+}
+
+/**
+ * POST /games/:id/npc-turn (token + owner). Body `{ version }`. Plays the current NPC's whole turn
+ * and saves its events with their template lines. Never calls the LLM (CLAUDE.md hard rules).
+ * ARCHITECTURE §4.2, GAME_RULES §8, §9.2. 400 · 403 · 409 stale / game over / human's turn.
+ * Responds `200 { game, events }`.
+ *
+ * Steps:
+ * 1. Same body check as rollAttack (only `version`).
+ * 2. Make `rollDie` the same way as rollAttack. The server rolls for the NPC too.
+ * 3. Call runAction with `{ version, turn: 'npc' }`, which gives the 409 on the human's turn. The
+ *    function returns the engine's `npc.playNpcTurn(state, rollDie)`.
+ * 4. Respond the same way as startAttack.
+ */
+export async function npcTurn(req, res) {
+  const { version, ...rest } = req.body ?? {};
+  if (Object.keys(rest).length > 0) {
+    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
+  }
+  if (!Number.isInteger(version) || version <= 0) {
+    throw new HttpError(400, 'bad_request', 'invalid body');
+  }
+
+  const rollDie = () => randomInt(1, 7);
+  const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'npc' }, (state) =>
+    npc.playNpcTurn(state, rollDie)
   );
   res.json({ game: toPublicGame(game, req.uid), events });
 }

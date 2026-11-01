@@ -47,3 +47,6 @@ apiRouter.post('/games/:id/skip', requireAuth, games.skip);
 // ARCHITECTURE §3: the human's reinforce and manoeuvre phases.
 apiRouter.post('/games/:id/reinforce', requireAuth, games.reinforce);
 apiRouter.post('/games/:id/transfer', requireAuth, games.transfer);
+
+// ARCHITECTURE §3, §4.2: one request plays one NPC's whole turn.
+apiRouter.post('/games/:id/npc-turn', requireAuth, games.npcTurn);

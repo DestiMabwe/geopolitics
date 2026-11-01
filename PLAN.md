@@ -205,8 +205,9 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 - [x] **S20b [AI tests → ME] (S): Occupy endpoint** (`/attack/occupy`).
   **Done when:** it takes `count` and `placements`, returns 422 for a count out of range or placements that don't sum to the bonus, and ends the turn.
   *Done 2026-10-28 by AI with S09, so a conquest in the slice can finish (logged in AI_LOG). 8 HTTP tests.*
-- [ ] **S21 [AI tests → ME] (S): `POST /npc-turn`.** One request plays one NPC's whole turn and saves its events with their template text. It never calls the LLM.
+- [x] **S21 [AI tests → ME] (S): `POST /npc-turn`.** One request plays one NPC's whole turn and saves its events with their template text. It never calls the LLM.
   **Done when:** it plays exactly one NPC turn, returns its events in order, gives 409 on the human's turn, and ends the game correctly if the human is eliminated.
+  *Done 2026-11-01. 21 HTTP tests in `npcTurnApi.test.js`. `node:crypto`'s `randomInt` is partly mocked in that file so the game-ending test can't flake. The 409 on the human's turn comes from `runAction` before the engine runs. `never calls the LLM` only bites once S21b imports the service. After an NPC's turn `pendingReinforcements` belongs to the next player, so it isn't 0 from round 2.*
 - [ ] **S21b [AI tests → ME] (S): `POST /games/:id/events/:eventId/commentary`.** Calls `commentaryService` and saves the result as `aiText` on the event. Idempotent: a second call returns the saved text without another LLM call. Stops calling the LLM after 60 calls in a game.
   **Done when:** tests show it requires login and ownership, saves the text once, returns the template when the LLM fails or the cap is reached, and never calls the LLM for other event types.
 - [ ] **S22b [AI tests → ME] (S): Input validation and abuse controls.** Strict body validation on every request (types, ranges, unknown fields rejected, per ARCHITECTURE §5.2), rate limiting on the commentary and attack endpoints, and a consistent error shape.
