@@ -1,3 +1,23 @@
+import { vi } from 'vitest';
+
+/**
+ * Stands in for the Anthropic client, so no test ever reaches the real LLM.
+ * Check what was sent through `client.messages.create.mock.calls`.
+ *
+ * @param {string | object[] | Error} reply text, the raw `content` blocks, or an error to reject with
+ * @param {string} [stopReason]
+ * @returns {{ messages: { create: import('vitest').Mock } }}
+ */
+export function mockLlm(reply = 'A line of commentary.', stopReason = 'end_turn') {
+  const create = reply instanceof Error
+    ? vi.fn().mockRejectedValue(reply)
+    : vi.fn().mockResolvedValue({
+      content: typeof reply === 'string' ? [{ type: 'text', text: reply }] : reply,
+      stop_reason: stopReason,
+    });
+  return { messages: { create } };
+}
+
 /**
  * Stands in for `rollDie` / `randomInt` in tests.
  * Returns a function that yields `values` in order, one per call,
