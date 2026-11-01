@@ -67,11 +67,11 @@ Written before the first real run, as something to compare against. The events a
 
 ## Results
 
-Real runs on 2026-11-01 through `generateCommentary` with the default model, `claude-haiku-5-5`, using the 5 sample events above. There were 5 rounds and 65 calls in all, and no call fell back to the template line. Round 1 ran each sample once, and rounds 2 to 5 ran each sample 3 times, because replies vary between runs. A throwaway script flagged number words, numbers not in the event, and replies over 40 words. Those checks stayed the same throughout, and only the prompt changed. Round 5 also flagged words that suggest a claim about the map, such as "map", "board" and "holds".
+Real runs on 2026-11-01 through `generateCommentary` with the default model, `claude-haiku-5-5`, using the 5 sample events above. There were 7 rounds and 105 calls in all, and no call fell back to the template line. Round 1 ran each sample once, and rounds 2 to 7 ran each sample 3 times, because replies vary between runs, except that round 6 ran the `gameOver` sample 10 times to test the fix for a fault seen in 1 reply of 3. A throwaway script flagged number words, numbers not in the event, and replies over 40 words. Those checks stayed the same throughout, and only the prompt changed. Rounds 6 and 7 also flagged words that suggest a claim about the map, such as "map" and "board".
 
 ### Final outputs
 
-The first reply per sample from round 5, the last round, using the prompt shown above.
+The first reply per sample from round 7, the last round, using the prompt shown above.
 
 | # | Type | Real output | Words |
 |---|---|---|---|
@@ -81,7 +81,7 @@ The first reply per sample from round 5, the last round, using the prompt shown 
 | 4 | `gameOver` | The game is over. Brazil has won. | 7 |
 | 5 | `gameOver` (tie) | The game is over. It ended with no single winner. | 10 |
 
-In round 5, all 15 replies were within 40 words, the longest being 26, and every number came from its event. None of the 6 `gameOver` replies made a claim about the map. The script flagged one reply, "Chile loses 2 and holds 3", which was a false alarm: "holds" there is about soldiers left, not the map.
+In round 7, all 15 replies were within 40 words, the longest being 26, and every number came from its event. None of the 6 `gameOver` replies made a claim about the map, and neither did any of the 13 in round 6. The script flagged one reply, "Chile loses 2 and holds 3", which was a false alarm: "holds" there is about soldiers left, not the map.
 
 ### Problems found and what changed
 
@@ -96,12 +96,15 @@ In round 5, all 15 replies were within 40 words, the longest being 26, and every
 | 2 | Soldiers left described as if they were there before the roll | "Argentina's 7 soldiers meet Chile's 3" | Added "after this roll" to the `attackerLeft` note |
 | 2 | Invented claims survived the general rule | "Brazil holds the last country", "the board stands unclaimed" | Added a specific `gameOver` rule: only that the game is over and who won, never who holds what |
 | 3 | One roll still counted the dice instead of listing them | "throws three dice against Chile" | Changed the roll rule to "list the value of every die for both sides" |
-| 5 | The `gameOver` rule did not say what the winner won, which left room for a claim about the map | Found in review, not in a round 4 reply | Extended the rule: the winner won the game, never the map. The round 5 rerun was clean |
+| 5 | Invented claim about the board, in 1 of the 3 replies for sample 4 | "Brazil has won the map" | Extended the `gameOver` rule: the winner won the game, never the map. Rounds 6 and 7 were clean, including 10 of 10 replies for sample 4 in round 6 |
 
 ### Known limits
 
-- **Tense:** 2 of the 3 round 4 replies for sample 1 slipped into the past tense ("rolled", "lost"), while all 3 in round 5 stayed in the present. It varies between runs. This is a style fault, not a factual one, so it was left alone.
-- **Who conquers:** 2 of the 3 round 5 replies for sample 2 said "Argentina takes Chile", naming the attacking country rather than the player, Brazil. Both still credit Brazil with the bonus and Argentina is the event's `from`, so this was left alone.
+- **Tense:** 2 of the 3 round 4 replies for sample 1 slipped into the past tense ("rolled", "lost"), while all 3 in rounds 6 and 7 stayed in the present. It varies between runs. This is a style fault, not a factual one, so it was left alone.
+- **Who conquers:** 2 of the 3 round 7 replies for sample 2 said "Argentina takes Chile", naming the attacking country rather than the player, Brazil. Both still credit Brazil with the bonus and Argentina is the event's `from`, so this was left alone.
+- **Awkward wording:** roll replies can say "Brazil's Argentina" (2 of 3 in rounds 6 and 7), and one elimination reply said "Brazil eliminates the player". These are accurate but odd.
+- **Map rule outside `gameOver`:** the map rule is written for `gameOver`, and one round 6 elimination reply said "Peru's campaign ends on the map". It claims nothing about who holds what, so it was left alone.
+- **Slow calls:** one call in the 40 timed in rounds 5 and 6 took 4,918 ms, close to the 5-second limit. The rest stayed under about 2.7 seconds. A call over the limit falls back to the template line, so this costs a line of colour, not the game.
 - **Voice:** the rules that removed invented facts also made the lines plainer than the expected lines, most clearly for `gameOver`. Accuracy was put first, because the brief and the LLM rule care about it most.
 - **Not enforced by code:** the rules are instructions to the model, so a wrong number is unlikely but not impossible. The service does not check replies against the event. A wrong line can only misdescribe an event, not change the game.
 
