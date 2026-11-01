@@ -1,3 +1,6 @@
+// The event types that get an LLM line. ARCHITECTURE §4.3
+export const LLM_EVENTS = new Set(['roll', 'conquest', 'elimination', 'gameOver']);
+
 export const countryName = (state, code) => state.countries[code].name;
 
 // Always `homeCode`, never current ownership, so a player keeps their name after losing it.

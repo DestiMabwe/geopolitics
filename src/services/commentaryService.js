@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { countryName, playerName, toText } from '../game/commentary.js';
+import { LLM_EVENTS, countryName, playerName, toText } from '../game/commentary.js';
 
 // The reasons for this wording are in docs/AI_DESIGN.md. Change the copy there too.
 const SYSTEM_PROMPT = `You are a war correspondent filing dispatches from a board game in which countries fight for control of the map. Your voice is terse, tense and dry: short sentences, in the present tense.
@@ -23,7 +23,6 @@ The fields:
 - status: won or lost, from the side of the human player, who is not identified. Do not report it.
 - winner: the player who won the game. A gameOver dispatch says only that the game is over and that the winner won the game, never the map, and never says who holds what. If winner is null, say only that the game ended with no single winner.`;
 
-const LLM_EVENTS = new Set(['roll', 'conquest', 'elimination', 'gameOver']);
 const COUNTRY_FIELDS = ['from', 'to'];
 const PLAYER_FIELDS = ['player', 'previousOwner', 'by', 'winner'];
 

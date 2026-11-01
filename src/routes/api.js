@@ -50,3 +50,6 @@ apiRouter.post('/games/:id/transfer', requireAuth, games.transfer);
 
 // ARCHITECTURE §3, §4.2: one request plays one NPC's whole turn.
 apiRouter.post('/games/:id/npc-turn', requireAuth, games.npcTurn);
+
+// ARCHITECTURE §3, §4.3: one LLM line for one saved event.
+apiRouter.post('/games/:id/events/:eventId/commentary', requireAuth, games.commentary);

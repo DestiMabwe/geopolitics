@@ -140,7 +140,7 @@ Every **game action** body includes `version` (the version the client last saw).
 | POST | `/games/:id/attack/occupy` | token + owner | `{ version, count, placements: { CODE: n } }` | moves `count` in + places the bonus, ends the turn · 422 count out of range / placements don't sum to the bonus |
 | POST | `/games/:id/skip` | token + owner | `{ version }` | ends the turn |
 | POST | `/games/:id/npc-turn` | token + owner | `{ version }` | plays **the current NPC's whole turn** and never calls the LLM · 409 if it is the human's turn |
-| POST | `/games/:id/events/:eventId/commentary` | token + owner | — | writes `aiText` on the event (LLM, or the template on failure) · idempotent · 429 when rate limited |
+| POST | `/games/:id/events/:eventId/commentary` | token + owner | — | responds `200 { text }` · writes `aiText` on the event (LLM, or the template on failure or at the cap) · other event types return the template and write nothing · idempotent · works on a finished game · 404 unknown event · 429 when rate limited |
 | GET | `/players/me` | token | — | stats |
 
 Common errors on every action: 400 bad body · 401 no or invalid token · 403 not the owner · 404 · 409 stale `version` / wrong phase / not your turn / game over · 422 illegal by the rules · 429 too many requests.

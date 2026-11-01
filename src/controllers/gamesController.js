@@ -6,6 +6,8 @@ import * as turn from '../game/turn.js';
 import * as reinforcements from '../game/reinforce.js';
 import * as transfers from '../game/transfer.js';
 import * as npc from '../game/npc.js';
+import { LLM_EVENTS } from '../game/commentary.js';
+import { generateCommentary } from '../services/commentaryService.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import countryData from '../data/countries.json' with { type: 'json' };
 
@@ -210,6 +212,49 @@ export async function npcTurn(req, res) {
     npc.playNpcTurn(state, rollDie)
   );
   res.json({ game: toPublicGame(game, req.uid), events });
+}
+
+/**
+ * POST /games/:id/events/:eventId/commentary (token + owner). No body. ARCHITECTURE §3, §4.3.
+ * Not a game action, so it takes no `version` and works on a finished game.
+ * 400 any body key · 403 not owner · 404 no such game or event. Responds `200 { text }`.
+ *
+ * Steps:
+ * 1. 400 'bad_request' if the body has any key at all (`req.body ?? {}`).
+ * 2. 404 'not_found' unless `eventId` is exactly 6 digits (`/^\d{6}$/`). Firestore throws on ids
+ *    like `__bad__`, which would otherwise be a 500.
+ * 3. Call gameModel.claimCommentary with the game id, event id and caller's uid.
+ * 4. If `event.aiText` is not null, respond with it. This is what makes the endpoint idempotent.
+ * 5. If `event.type` is not in LLM_EVENTS, respond with `event.text`. Save nothing.
+ * 6. Choose the line, with no transaction open (CLAUDE.md hard rules). If `claimed`, it is
+ *    `await generateCommentary({ type: event.type, ...event.data }, state)`. If not (the cap), it is
+ *    `event.text`. Leave `event.round` out: on these four types it is a stored 0, not a real field,
+ *    and it would reach the prompt.
+ * 7. Save it with gameModel.saveCommentary and respond with what that returns.
+ */
+export async function commentary(req, res) {
+  // The client may not send commentary text of its own, so any body key is rejected.
+  if (Object.keys(req.body ?? {}).length > 0) {
+    throw new HttpError(400, 'bad_request', 'This endpoint takes no body');
+  }
+  // Firestore throws on ids like `__bad__`, which would otherwise be a 500.
+  if (!/^\d{6}$/.test(req.params.eventId)) {
+    throw new HttpError(404, 'not_found', `No event with id ${req.params.eventId}`);
+  }
+
+  const { id, eventId } = req.params;
+  const { event, state, claimed } = await gameModel.claimCommentary(id, eventId, req.uid);
+
+  if (event.aiText !== null) {
+    return res.json({ text: event.aiText });
+  }
+  if (!LLM_EVENTS.has(event.type)) {
+    return res.json({ text: event.text });
+  }
+
+  // No transaction is open here (CLAUDE.md). `round` is left out: on these types it is a stored 0.
+  const line = claimed ? await generateCommentary({ type: event.type, ...event.data }, state) : event.text;
+  res.json({ text: await gameModel.saveCommentary(id, eventId, line) });
 }
 
 /**
