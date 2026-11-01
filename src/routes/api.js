@@ -6,6 +6,7 @@ import { requireAuth, optionalAuth } from '../middleware/requireAuth.js';
 import { validate } from '../middleware/validate.js';
 import { rateLimit } from '../middleware/rateLimit.js';
 import * as games from '../controllers/gamesController.js';
+import * as players from '../controllers/playersController.js';
 import { soldierValue } from '../game/soldiers.js';
 
 export const apiRouter = Router();
@@ -62,3 +63,6 @@ apiRouter.post('/games/:id/npc-turn', requireAuth, versioned, games.npcTurn);
 
 // ARCHITECTURE §3, §4.3: one LLM line for one saved event. It takes no body.
 apiRouter.post('/games/:id/events/:eventId/commentary', requireAuth, commentaryLimit, validate({}), games.commentary);
+
+// ARCHITECTURE §3: the caller's own stats.
+apiRouter.get('/players/me', requireAuth, players.getMe);

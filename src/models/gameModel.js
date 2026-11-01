@@ -2,6 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getDb } from '../config/firebase.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import { LLM_EVENTS, toText } from '../game/commentary.js';
+import { playerRef, startedFields, finishedFields } from './playerModel.js';
 
 // ARCHITECTURE §4.3: LLM calls allowed per game.
 export const MAX_LLM_CALLS = 60;
@@ -32,6 +33,7 @@ export async function createGame(ownerUid, state, events) {
   for (const event of eventDocs) {
     batch.set(gameRef.collection('events').doc(eventId(event.seq)), event);
   }
+  batch.set(playerRef(ownerUid), startedFields(), { merge: true });
   await batch.commit();
   return gameRef.id;
 }
@@ -138,6 +140,10 @@ export async function runAction(gameId, uid, { version, turn }, fn) {
     const eventDocs = result.events.map((e, i) => toEventDoc(e, eventSeq + i + 1, result.state));
 
     tx.set(gameRef, { ...game, updatedAt: FieldValue.serverTimestamp() });
+    // Only an active game gets here, so the turn that ends it counts once, in the same commit as the move.
+    if (result.state.status !== 'active') {
+      tx.set(playerRef(ownerUid), finishedFields(result.state.status), { merge: true });
+    }
     for (const event of eventDocs) {
       tx.set(gameRef.collection('events').doc(eventId(event.seq)), event);
     }
