@@ -3,6 +3,8 @@ import * as gameModel from '../models/gameModel.js';
 import { createGame as newGameState } from '../game/setup.js';
 import * as attack from '../game/attack.js';
 import * as turn from '../game/turn.js';
+import * as reinforcements from '../game/reinforce.js';
+import * as transfers from '../game/transfer.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import countryData from '../data/countries.json' with { type: 'json' };
 
@@ -176,6 +178,64 @@ export async function occupy(req, res) {
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     attack.occupy(state, count, placements)
+  );
+  res.json({ game: toPublicGame(game, req.uid), events });
+}
+
+/**
+ * POST /games/:id/reinforce (token + owner). Body `{ version, placements: { CODE: n } }`.
+ * Places all pending reinforcements. GAME_RULES §7.3, ARCHITECTURE §3.
+ * 400 bad body · 403 · 409 stale / not in reinforce / not your turn · 422 bad sum or not owned.
+ * Responds `200 { game, events }`.
+ *
+ * Steps:
+ * 1. Same body checks as occupy, without `count`: the only allowed keys are `version` and
+ *    `placements`, and `placements` must be a map (not null, not an array).
+ * 2. Call runAction with `{ version, turn: 'human' }`; the function returns the engine's
+ *    `reinforcements.placeReinforcements(state, placements)`.
+ * 3. Respond the same way as startAttack.
+ */
+export async function reinforce(req, res) {
+  const { version, placements, ...rest } = req.body ?? {};
+  if (Object.keys(rest).length > 0) {
+    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
+  }
+  const isMap = placements !== null && typeof placements === 'object' && !Array.isArray(placements);
+  if (!Number.isInteger(version) || version <= 0 || !isMap) {
+    throw new HttpError(400, 'bad_request', 'invalid body');
+  }
+
+  const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
+    reinforcements.placeReinforcements(state, placements)
+  );
+  res.json({ game: toPublicGame(game, req.uid), events });
+}
+
+/**
+ * POST /games/:id/transfer (token + owner). Body `{ version, from, to, count }`.
+ * Moves soldiers between two of the player's countries. GAME_RULES §6, ARCHITECTURE §3.
+ * 400 bad body · 403 · 409 stale / not in manoeuvre / not your turn · 422 §6.1.
+ * Responds `200 { game, events }`.
+ *
+ * Steps:
+ * 1. 400 'bad_request' for any key other than `version`, `from`, `to`, `count`.
+ * 2. 400 'bad_request' unless `version` is a positive integer, `from` and `to` are strings, and
+ *    `count` is a number. The strings matter: the engine calls `toUpperCase` on them, so anything
+ *    else would crash into a 500. Leave 0 and 1.5 to the engine, which answers 422 (§6.1).
+ * 3. Call runAction; the function returns the engine's `transfers.transfer(state, from, to, count)`.
+ * 4. Respond the same way as startAttack.
+ */
+export async function transfer(req, res) {
+  const { version, from, to, count, ...rest } = req.body ?? {};
+  if (Object.keys(rest).length > 0) {
+    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
+  }
+  if (!Number.isInteger(version) || version <= 0 || typeof from !== 'string' || typeof to !== 'string' || typeof count !== 'number') {
+    throw new HttpError(400, 'bad_request', 'invalid body');
+  }
+
+  const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
+    transfers.transfer(state, from, to, count)
   );
   res.json({ game: toPublicGame(game, req.uid), events });
 }

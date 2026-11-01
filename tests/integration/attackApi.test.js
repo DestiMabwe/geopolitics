@@ -328,6 +328,11 @@ describe('POST /api/games/:id/skip (GAME_RULES §4.2)', () => {
     expect((await post(`${id}/skip`, alice, { version: 1 })).status).toBe(409);
   });
 
+  it('returns 409 in the reinforce phase', async () => {
+    const id = await seed(alice, { round: 2, phase: 'reinforce', pendingReinforcements: 4 });
+    expect((await post(`${id}/skip`, alice, { version: 1 })).status).toBe(409);
+  });
+
   it('skips: skip event, then the next player\'s turn', async () => {
     const id = await seed(alice);
     const res = await post(`${id}/skip`, alice, { version: 1 });

@@ -199,9 +199,9 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 
 ## F. Rest of the server
 
-- [ ] **S19 [AI tests → ME] (S): Reinforce, transfer, skip endpoints.**
+- [x] **S19 [AI tests → ME] (S): Reinforce, transfer, skip endpoints.**
   **Done when:** each returns `{ game, events }` and the phase errors match ARCHITECTURE §3.
-  *In progress: `/skip` was done with S12 (5 HTTP tests). `/reinforce` and `/transfer` can start now S10 and S11 are done.*
+  *Done 2026-11-01. 52 HTTP tests in `manoeuvreApi.test.js`, 1 more for `/skip`. A `count` that isn't a number is 400, while 0 or 1.5 is 422 from the engine (ARCHITECTURE §3); S22b decides whether §5.2 tightens that. Controllers still use `(state) => engine(state, …)`, so S13c moves all seven together. The same body checks now repeat across seven controllers, which is S22b's `validate` job, so no refactor here. Added `jsconfig.json` for editor IntelliSense. **Known issue:** a unit run sometimes shows 1 failure, on a cold start only, and the name still isn't captured (see S16c).*
 - [x] **S20b [AI tests → ME] (S): Occupy endpoint** (`/attack/occupy`).
   **Done when:** it takes `count` and `placements`, returns 422 for a count out of range or placements that don't sum to the bonus, and ends the turn.
   *Done 2026-10-28 by AI with S09, so a conquest in the slice can finish (logged in AI_LOG). 8 HTTP tests.*

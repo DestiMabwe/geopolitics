@@ -43,3 +43,7 @@ apiRouter.post('/games/:id/attack/roll', requireAuth, games.rollAttack);
 apiRouter.post('/games/:id/attack/stop', requireAuth, games.stopAttack);
 apiRouter.post('/games/:id/attack/occupy', requireAuth, games.occupy);
 apiRouter.post('/games/:id/skip', requireAuth, games.skip);
+
+// ARCHITECTURE §3: the human's reinforce and manoeuvre phases.
+apiRouter.post('/games/:id/reinforce', requireAuth, games.reinforce);
+apiRouter.post('/games/:id/transfer', requireAuth, games.transfer);
