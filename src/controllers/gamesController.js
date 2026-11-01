@@ -37,10 +37,7 @@ function toIso(value) {
  * Responds `201 { game, events }`.
  */
 export async function createGame(req, res) {
-  const { countryCode } = req.body ?? {};
-  if (typeof countryCode !== 'string') {
-    throw new HttpError(400, 'bad_request', 'countryCode must be a string');
-  }
+  const { countryCode } = req.body;
 
   // An unknown country makes the engine throw IllegalMoveError, which errorHandler turns into 422.
   const { state, events } = newGameState({
@@ -96,13 +93,7 @@ export async function listEvents(req, res) {
  *    (with the caller's uid) and `events` as they are.
  */
 export async function startAttack(req, res) {
-  const { version, from, to, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  if (!Number.isInteger(version) || version <= 0 || typeof from !== 'string' || typeof to !== 'string') {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version, from, to } = req.body;
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     attack.startAttack(state, from, to)
@@ -124,13 +115,7 @@ export async function startAttack(req, res) {
  * 4. Respond the same way as startAttack.
  */
 export async function rollAttack(req, res) {
-  const { version, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  if (!Number.isInteger(version) || version <= 0) {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version } = req.body;
 
   const rollDie = () => randomInt(1, 7);
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
@@ -149,13 +134,7 @@ export async function rollAttack(req, res) {
  * 3. Respond the same way as startAttack.
  */
 export async function stopAttack(req, res) {
-  const { version, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  if (!Number.isInteger(version) || version <= 0) {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version } = req.body;
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     attack.stopAttack(state)
@@ -170,14 +149,7 @@ export async function stopAttack(req, res) {
  * Responds `200 { game, events }`.
  */
 export async function occupy(req, res) {
-  const { version, count, placements, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  const isMap = placements !== null && typeof placements === 'object' && !Array.isArray(placements);
-  if (!Number.isInteger(version) || version <= 0 || typeof count !== 'number' || !isMap) {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version, count, placements } = req.body;
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     attack.occupy(state, count, placements)
@@ -199,13 +171,7 @@ export async function occupy(req, res) {
  * 4. Respond the same way as startAttack.
  */
 export async function npcTurn(req, res) {
-  const { version, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  if (!Number.isInteger(version) || version <= 0) {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version } = req.body;
 
   const rollDie = () => randomInt(1, 7);
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'npc' }, (state) =>
@@ -220,7 +186,7 @@ export async function npcTurn(req, res) {
  * 400 any body key · 403 not owner · 404 no such game or event. Responds `200 { text }`.
  *
  * Steps:
- * 1. 400 'bad_request' if the body has any key at all (`req.body ?? {}`).
+ * 1. (Done before this runs: `validate({})` answers 400 'bad_request' if the body has any key at all.)
  * 2. 404 'not_found' unless `eventId` is exactly 6 digits (`/^\d{6}$/`). Firestore throws on ids
  *    like `__bad__`, which would otherwise be a 500.
  * 3. Call gameModel.claimCommentary with the game id, event id and caller's uid.
@@ -233,10 +199,6 @@ export async function npcTurn(req, res) {
  * 7. Save it with gameModel.saveCommentary and respond with what that returns.
  */
 export async function commentary(req, res) {
-  // The client may not send commentary text of its own, so any body key is rejected.
-  if (Object.keys(req.body ?? {}).length > 0) {
-    throw new HttpError(400, 'bad_request', 'This endpoint takes no body');
-  }
   // Firestore throws on ids like `__bad__`, which would otherwise be a 500.
   if (!/^\d{6}$/.test(req.params.eventId)) {
     throw new HttpError(404, 'not_found', `No event with id ${req.params.eventId}`);
@@ -271,14 +233,7 @@ export async function commentary(req, res) {
  * 3. Respond the same way as startAttack.
  */
 export async function reinforce(req, res) {
-  const { version, placements, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  const isMap = placements !== null && typeof placements === 'object' && !Array.isArray(placements);
-  if (!Number.isInteger(version) || version <= 0 || !isMap) {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version, placements } = req.body;
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     reinforcements.placeReinforcements(state, placements)
@@ -301,13 +256,7 @@ export async function reinforce(req, res) {
  * 4. Respond the same way as startAttack.
  */
 export async function transfer(req, res) {
-  const { version, from, to, count, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  if (!Number.isInteger(version) || version <= 0 || typeof from !== 'string' || typeof to !== 'string' || typeof count !== 'number') {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version, from, to, count } = req.body;
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     transfers.transfer(state, from, to, count)
@@ -320,13 +269,7 @@ export async function transfer(req, res) {
  * GAME_RULES §4.2. 400 · 403 · 409 stale / not in manoeuvre. Responds `200 { game, events }`.
  */
 export async function skip(req, res) {
-  const { version, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  if (!Number.isInteger(version) || version <= 0) {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version } = req.body;
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     turn.skip(state)
