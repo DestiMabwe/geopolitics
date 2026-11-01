@@ -54,7 +54,7 @@ The country catalogue `src/data/countries.json` (code, name, population, capital
 | `players.js` | `currentPlayer(state)` (shared by every action) | §4 |
 | `npc.js` | `chooseTarget`, `shouldStop`, `npcReinforce`, `npcOccupy`, `playNpcTurn(state, rollDie)` | §8 |
 | `victory.js` | `checkElimination`, `checkGameOver`, `leader(owners)` (shared with `npc.js`) | §2.4, §8.1, §9 |
-| `commentary.js` | `toText(event, catalogue)`, the template line used as fallback | §10 |
+| `commentary.js` | `toText(event, state)`, the template line used as fallback; `countryName`, `playerName` (shared with `commentaryService`) | §10 |
 
 Every state-changing function returns `{ state, events }` and throws `IllegalMoveError` (→ 422) or `WrongPhaseError` (→ 409). It never mutates its input.
 

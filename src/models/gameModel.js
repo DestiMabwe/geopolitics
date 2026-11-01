@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { getDb } from '../config/firebase.js';
 import { HttpError } from '../middleware/errorHandler.js';
+import { toText } from '../game/commentary.js';
 
 /**
  * Stores a new game and its first events in one batch (ARCHITECTURE §2).
@@ -9,9 +10,9 @@ import { HttpError } from '../middleware/errorHandler.js';
  *   `ownerUid`, `version: 1`, `eventSeq` (= number of events), `llmCalls: 0`,
  *   `createdAt` and `updatedAt` (server timestamps).
  * `games/{id}/events/{000001, 000002, …}` = one doc per engine event:
- *   `{ seq, round, type, data, text: '', aiText: null, createdAt }`
- *   where `type` is the event's type and `data` is every other field of the event.
- *   `text` stays '' until S16 (commentary.toText) exists.
+ *   `{ seq, round, type, data, text, aiText: null, createdAt }`
+ *   where `type` is the event's type, `data` is every other field of the event,
+ *   and `text` is the template line from `commentary.toText`.
  *
  * @param {string} ownerUid
  * @param {object} state engine state from `createGame`
@@ -20,7 +21,7 @@ import { HttpError } from '../middleware/errorHandler.js';
  */
 export async function createGame(ownerUid, state, events) {
   const gameDoc = { ...state, ownerUid, version: 1, eventSeq: events.length, llmCalls: 0 };
-  const eventDocs = events.map((e, i) => toEventDoc(e, i + 1));
+  const eventDocs = events.map((e, i) => toEventDoc(e, i + 1, state));
 
   const batch = getDb().batch();
   const gameRef = getDb().collection('games').doc();
@@ -131,7 +132,7 @@ export async function runAction(gameId, uid, { version, turn }, fn) {
       version: stored.version + 1,
       eventSeq: eventSeq + result.events.length,
     };
-    const eventDocs = result.events.map((e, i) => toEventDoc(e, eventSeq + i + 1));
+    const eventDocs = result.events.map((e, i) => toEventDoc(e, eventSeq + i + 1, result.state));
 
     tx.set(gameRef, { ...game, updatedAt: FieldValue.serverTimestamp() });
     for (const event of eventDocs) {
@@ -145,10 +146,10 @@ export async function runAction(gameId, uid, { version, turn }, fn) {
   });
 }
 
-/** Engine event → stored event doc (ARCHITECTURE §2). `text` stays '' until S16. */
-function toEventDoc(event, seq) {
+/** Engine event → stored event doc (ARCHITECTURE §2). */
+function toEventDoc(event, seq, state) {
   const { type, round = 0, ...data } = event;
-  return { seq, round, type, data, text: '', aiText: null, createdAt: FieldValue.serverTimestamp() };
+  return { seq, round, type, data, text: toText(event, state), aiText: null, createdAt: FieldValue.serverTimestamp() };
 }
 
 function eventId(seq) {
