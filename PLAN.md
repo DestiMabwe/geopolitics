@@ -95,7 +95,7 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 | Thu 5 Nov | Buffer only. No new features. Rehearse the demo | | |
 | Fri 6 Nov | Submit | | |
 
-**Must-have (never cut):** S01–S22b, S24–S28, S30, S31a, S31b, S32.
+**Must-have (never cut):** S01–S22b, S24–S28, S30, S31a, S31b, S32, S33a, S33b.
 **Cut in this order if behind:** (1) S26a WorldMap, (2) S29 polish beyond keyboard and mobile basics, (3) S23 player stats, (4) the optional replay stretch.
 **Never cut:** the AI log, tests for the engine, the spectator view, and the LLM commentary. These are the brief's required items and marked rubric rows.
 
@@ -246,6 +246,15 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
   *Ticked 2026-11-02 at my request. Done: `git log --all -p` has no real secrets (only fake test fixtures); the Vercel project is `geopolitics` under team `el-fx` (my first check looked only in `merch6`); Firebase Admin vars are in `.env` and Vercel; production web config added to `public/js/firebaseConfig.js` (commit `f001d90`); a clean copy of that commit was deployed to production at https://geopolitics-peach.vercel.app (`/api/health` 200, `/api/health/db` ok, unauthenticated POST gives 401); three educator accounts were created in Firebase Auth. **Not yet verified when ticked:** the Firestore rules were not deployed from the CLI (the service account lacks Service Usage permission, and `firebase login` failed in Chrome), so `firestore.rules` must be pasted into the console; a real login on the live site; the full-game rehearsal with a logged-out phone watching. Also: rotate the service-account key, which was pasted into a chat.*
 - [ ] **S32 [ME + AI] (M): README + AI-use reflection.**
   **Done when:** a fresh clone + README steps → running app + green tests, and the reflection (built from AI_LOG.md) explains what AI wrote versus what I wrote, how I checked the AI's work, and where the game's own AI (NPCs, commentary) fits.
+
+## I. Gap found 2026-11-02: NPC decision reasons
+
+The brief (p.5) says to show every NPC decision with a brief justification, still visible during fast-forward. NPC events carried no reason. Added after S31b; **must-have**. Needs `reason?` added to the five rows in GAME_RULES §10 (I do that, AI does not edit GAME_RULES).
+
+- [ ] **S33a [AI tests → ME] (M): NPC reasons in the engine.** `src/game/npcReason.js` (pure): `reinforceReason`, `targetReason`, `skipReason`, `stopReason`, `occupyReason`, each returning one plain-English string built only from the state. `playNpcTurn` attaches the string as `reason` on the NPC's `reinforce`, `attackStart`, `skip`, `attackStopped` and `occupy` events. Other events (`roll`, `conquest`, `turnStart`…) get none.
+  **Done when:** a Warlord, Fortress and Opportunist each produce a reason naming the real numbers behind the choice, the 20-roll cap has its own reason, `playNpcTurn` puts a `reason` on exactly those five event types, no state is mutated, and the three exact-event tests in `npc.test.js` that the new field breaks are updated with my OK.
+- [ ] **S33b [AI] (S): Show the reasons.** `eventText.js` and CommentaryFeed show the reason as a muted second line under each NPC decision, using tokens only. It uses the template path, so fast-forward shows it too. No LLM change: the LLM only writes `roll`, `conquest`, `elimination` and `gameOver`.
+  **Done when:** every NPC decision shows its reason at normal speed and in fast-forward, the stored event doc and the public `GET /events` carry `reason`, an event with no reason shows no empty line, and the client works out no numbers.
 
 ## 8. Bonus feature
 

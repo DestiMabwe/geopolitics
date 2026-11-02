@@ -1,6 +1,7 @@
 import { startAttack, rollAttack, stopAttack, occupy } from './attack.js';
 import { WrongPhaseError } from './errors.js';
 import { currentPlayer } from './players.js';
+import { occupyReason, reinforceReason, skipReason, stopReason, targetReason } from './npcReason.js';
 import { placeReinforcements } from './reinforce.js';
 import { skip } from './turn.js';
 import { leader } from './victory.js';
@@ -175,31 +176,37 @@ export function playNpcTurn(state, rollDie) {
   }
 
   const events = [];
-  const apply = (result) => {
+  // A `reason` is worked out from the state before the action, then goes on the action's own
+  // event, which is always the first one the action returns.
+  const apply = (result, reason) => {
     state = result.state;
-    events.push(...result.events);
+    const [first, ...rest] = result.events;
+    events.push(...(reason ? [{ ...first, reason }, ...rest] : result.events));
   };
 
   if (state.phase === 'reinforce') {
-    apply(placeReinforcements(state, npcReinforce(state, player, state.pendingReinforcements)));
+    const amount = state.pendingReinforcements;
+    const reason = reinforceReason(state, player, amount);
+    apply(placeReinforcements(state, npcReinforce(state, player, amount)), reason);
   }
 
   const target = chooseTarget(state, player);
   if (!target) {
-    apply(skip(state));
+    apply(skip(state), skipReason(state, player));
     return { state, events };
   }
 
-  apply(startAttack(state, target.from, target.to));
+  apply(startAttack(state, target.from, target.to), targetReason(state, player, target));
   // Stopping or failing ends the turn, and a conquest moves to `occupy`, so either leaves the loop.
   while (state.phase === 'attacking') {
-    apply(shouldStop(state, player) ? stopAttack(state) : rollAttack(state, rollDie));
+    if (shouldStop(state, player)) apply(stopAttack(state), stopReason(state, player));
+    else apply(rollAttack(state, rollDie));
   }
 
   // §9.2: if that conquest ended the game, the phase is still `occupy` but nothing more happens.
   if (state.phase === 'occupy' && state.status === 'active') {
     const { count, placements } = npcOccupy(state, player);
-    apply(occupy(state, count, placements));
+    apply(occupy(state, count, placements), occupyReason(state, player, count));
   }
   return { state, events };
 }

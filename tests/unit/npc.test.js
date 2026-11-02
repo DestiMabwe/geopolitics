@@ -423,7 +423,7 @@ describe('playNpcTurn (GAME_RULES §4, §8, §9.2)', () => {
   it('skips when no target is good enough', () => {
     const state = myTurn('fortress', { AAA: [ME, 4], BBB: ['human', 2], ZZZ: ['npc:ZZZ', 9] }, edges);
     expect(playNpcTurn(state, scripted()).events).toEqual([
-      { type: 'skip', player: ME },
+      { type: 'skip', player: ME, reason: expect.any(String) },
       { type: 'turnStart', player: 'npc:ZZZ', round: 1 },
     ]);
   });
@@ -432,7 +432,7 @@ describe('playNpcTurn (GAME_RULES §4, §8, §9.2)', () => {
     const { state, events } = playNpcTurn(conquest(), conquestDice());
     const fight = { player: ME, from: 'AAA', to: 'BBB' };
     expect(events).toEqual([
-      { type: 'attackStart', ...fight },
+      { type: 'attackStart', ...fight, reason: expect.any(String) },
       {
         type: 'roll', ...fight,
         attackerDice: [6, 2], defenderDice: [3, 5],
@@ -449,7 +449,7 @@ describe('playNpcTurn (GAME_RULES §4, §8, §9.2)', () => {
         attackerLosses: 0, defenderLosses: 1, attackerLeft: 3, defenderLeft: 0,
       },
       { type: 'conquest', ...fight, previousOwner: 'npc:BBB', bonus: 3 },
-      { type: 'occupy', ...fight, count: 1, placements: { BBB: 3 } },
+      { type: 'occupy', ...fight, count: 1, placements: { BBB: 3 }, reason: expect.any(String) },
       { type: 'turnStart', player: 'npc:BBB', round: 1 },
     ]);
     expect(state.countries.AAA.soldiers).toBe(2);
@@ -466,7 +466,9 @@ describe('playNpcTurn (GAME_RULES §4, §8, §9.2)', () => {
     );
     const { events } = playNpcTurn(state, scripted(6, 6, 1, 1));
     expect(types(events)).toEqual(['reinforce', 'attackStart', 'roll', 'conquest', 'occupy', 'turnStart']);
-    expect(events[0]).toEqual({ type: 'reinforce', player: ME, amount: 2, placements: { AAA: 2 } });
+    expect(events[0]).toEqual({
+      type: 'reinforce', player: ME, amount: 2, placements: { AAA: 2 }, reason: expect.any(String),
+    });
   });
 
   it('ends with attackFailed when the NPC runs down to 1 soldier', () => {
