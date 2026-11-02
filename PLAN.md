@@ -20,7 +20,7 @@
 | Spectating | **Polling.** A visitor's page calls the public `GET /games/:id` and `GET /games/:id/events?after=` every 2 seconds. Firestore rules deny all client access, so nothing private can leak and the server stays the only door. |
 | Commentary | **Simple rule:** the LLM writes one line for each `roll`, `conquest`, `elimination` and `gameOver` event, at normal speed. All other events, and anything during fast-forward, use the template line. A game stops using the LLM after 60 calls, and any LLM failure falls back to the template. |
 | Hosting | Vercel (Pro plan), Express as a serverless function. One request does at most one NPC turn (bounded by GAME_RULES §4.5 and the 20-roll cap), so no request runs long. |
-| Bonus feature | **Proposed: NPC profiles** (brief's bonus idea 9, already required by GAME_RULES §8). Confirm before Mon 2 Nov. See §8. |
+| Bonus feature | **NPC profiles** (brief's bonus idea 9, already required by GAME_RULES §8). Confirmed 2026-11-02. See §8. |
 
 ## 0. Rubric (INF4001N entrance exam, 56 marks)
 
@@ -250,12 +250,13 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 ## 8. Bonus feature
 
 The brief allows **one** extra feature. **Proposed: NPC profiles** (brief idea 9: "Create profiles for NPCs, e.g. aggressive attacker, defensive"). They are already in GAME_RULES §8 (Warlord, Fortress, Opportunist), so the work is to make them visible and explainable:
-- [ ] **B1 [ME + AI] (S):** Show each NPC's profile badge in TurnOrderBar and NationCard, and add a short "How the NPCs think" section to the README and `docs/AI_DESIGN.md`, with the three scoring formulas.
+- [x] **B1 [ME + AI] (S):** Show each NPC's profile badge in TurnOrderBar and NationCard, and add a short "How the NPCs think" section to the README and `docs/AI_DESIGN.md`, with the three scoring formulas.
   **Done when:** a visitor can see which profile each NPC has, and the README explains the three behaviours with one of the §8.3 examples.
+  *Done 2026-11-02. `profiles.js` (`profileLabel`, `profileBlurb`, 7 tests, written by me), shared `ProfileBadge.js` used by TurnOrderBar and NationBoard (the component is NationBoard, not NationCard), badge CSS, and "How the NPCs think" in `docs/AI_DESIGN.md` with the three formulas and the §8.3 Opportunist example. **Deferred to S32:** the README section, because the README does not exist yet; S32 should link to or copy the AI_DESIGN.md section. Badges not yet checked by eye in the browser at 320px. Found while doing this: no NPC event carries a reason, but the brief asks for a brief justification of every NPC decision. Check before the demo.*
 
 **Stretch only if everything above is done and green:** replay a finished game (brief idea 5). It reuses `replay.js` and needs no new writes.
 
-**Chosen bonus:** _NPC profiles (proposed, confirm by Mon 2 Nov)_
+**Chosen bonus:** NPC profiles (confirmed 2026-11-02)
 
 ---
 

@@ -737,14 +737,17 @@ button[aria-disabled="true"] {
   text-decoration: line-through;
 }
 
-.turn-chip__profile {
+/* NPC profile badge, shared by TurnOrderBar and NationBoard. Text carries the meaning, colour backs it up. */
+.profile-badge {
   color: var(--color-text-muted);
-  text-transform: capitalize;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  cursor: help;
 }
 
-.turn-chip__profile--warlord { color: var(--profile-warlord); }
-.turn-chip__profile--fortress { color: var(--profile-fortress); }
-.turn-chip__profile--opportunist { color: var(--profile-opportunist); }
+.profile-badge--warlord { color: var(--profile-warlord); }
+.profile-badge--fortress { color: var(--profile-fortress); }
+.profile-badge--opportunist { color: var(--profile-opportunist); }
 
 /* ── NationCard (DESIGN §2) ────────────────────── */
 .nation-board {
@@ -783,6 +786,13 @@ button[aria-disabled="true"] {
 .nation-card__name {
   font-family: var(--font-display);
   line-height: var(--leading-tight);
+}
+
+.nation-card__owner-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .nation-card__code,

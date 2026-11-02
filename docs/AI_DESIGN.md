@@ -1,6 +1,6 @@
 # AI design: battle commentary
 
-How the LLM commentary works and why it can't touch the game. Plan task S16c. The NPC profiles' explanation will be added here separately.
+How the LLM commentary works and why it can't touch the game. Plan task S16c. The last section, "How the NPCs think", explains the NPC profiles (the bonus feature).
 
 ## The prompt
 
@@ -108,3 +108,30 @@ In round 7, all 15 replies were within 40 words, the longest being 26, and every
 - **Voice:** the rules that removed invented facts also made the lines plainer than the expected lines, most clearly for `gameOver`. Accuracy was put first, because the brief and the LLM rule care about it most.
 - **Not enforced by code:** the rules are instructions to the model, so a wrong number is unlikely but not impossible. The service does not check replies against the event. A wrong line can only misdescribe an event, not change the game.
 
+
+## How the NPCs think
+
+Bonus feature: NPC profiles (brief idea 9). The three profiles are fixed rules in `GAME_RULES.md` §8. There is no LLM in the loop, so NPC play is deterministic given the dice. The server shuffles three of each profile across the 9 NPCs when the game is created (§2.3). Each NPC shows a badge in the turn bar and on its countries, and hovering the badge gives a one-line description.
+
+On its turn every NPC lists its legal attacks (a country of its own with 2 or more soldiers, next to a country it doesn't own), scores each one with its profile's formula, drops the ones below the profile's threshold, and attacks the best. If nothing is left it skips. Ties go to the weakest target, then the country code. `d` below is `soldiers(source) − soldiers(target)`.
+
+| | **Warlord** | **Fortress** | **Opportunist** |
+|---|---|---|---|
+| Character | Aggressive, goes after the human | Cautious, sure wins only | Picks off the weak and the leader |
+| Score | `d + 2` if the target is the human | `soldiers(source) − 2 × soldiers(target)` | `d + 3` if the target has 2 or fewer soldiers, `+ 2` if it belongs to the leader |
+| Attacks only if | score ≥ 0 | score ≥ 1 and `soldiers(source) ≥ 2 × soldiers(target) + 1` | score ≥ 2 |
+| Stops rolling when | never (until it conquers or is down to 1) | `soldiers(source) < 2 × soldiers(target) + 1` | `soldiers(source) ≤ soldiers(target)` |
+| Reinforces | all on its biggest country | one at a time on its smallest | all on its biggest country |
+| Moves in after a conquest | half its spare soldiers | 1 | 1 |
+
+The leader is the player with the most countries, other than the NPC itself. If two players tie there is no leader. Every NPC attack is also capped at 20 rolls so a run of ties can't go on forever.
+
+**Worked example (Opportunist, §8.3).** An Opportunist owns `TUR` with 5 soldiers, and the human holds 3 countries, so the human is the leader.
+- `IND` (human, 3 soldiers): 5 − 3 + 0 + 2 = **4**.
+- `NPL` (NPC, 1 soldier): 5 − 1 + 3 = **7**.
+- `IRN` (NPC, 4 soldiers): 5 − 4 = 1, below the threshold of 2, so it is dropped.
+
+It attacks `NPL`: the weak country is worth more to it than the leader.
+
+**Why three profiles.** Same rules and same dice, different appetite for risk. A Warlord makes the human's neighbourhood dangerous, a Fortress sits still until it is safe, and an Opportunist swings towards whoever is winning, which stops the human running away with the game unopposed.
+**What the client does.** It only shows the profile name and description. The scores and thresholds exist on the server alone, and the client never works them out.
