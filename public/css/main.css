@@ -151,6 +151,12 @@ h3 {
   border-top: 1px solid var(--color-border);
 }
 
+/* A panel open in the bar can be taller than a phone screen: let it scroll inside the bar. */
+.slot--action {
+  max-height: 60dvh;
+  overflow-y: auto;
+}
+
 /* The only horizontal scroll allowed on the page. */
 .slot--turn-order {
   overflow-x: auto;
@@ -182,6 +188,7 @@ h3 {
   .slot--header,
   .slot--spectator,
   .slot--turn-order,
+  .slot--map,
   .slot--board,
   .slot--action {
     grid-column: 1 / -1;
@@ -446,7 +453,8 @@ h3 {
   text-decoration: underline;
 }
 
-button:disabled {
+button:disabled,
+button[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -503,7 +511,7 @@ button:disabled {
 .start,
 .game-list,
 .dice-panel,
-.event-log,
+.commentary-feed,
 .spectator-banner,
 .game-message {
   padding: var(--space-4);
@@ -514,8 +522,8 @@ button:disabled {
 
 .start__search,
 .start__sort,
-.occupy-form input,
-.occupy-form select {
+.panel-form input,
+.panel-form select {
   min-height: var(--tap-min);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
@@ -834,7 +842,7 @@ button:disabled {
 
 /* ── ActionBar ─────────────────────────────────── */
 .action-bar,
-.occupy-form {
+.panel-form {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -847,7 +855,61 @@ button:disabled {
   font-size: var(--text-sm);
 }
 
-.occupy-form label {
+.panel-form label {
+  font-size: var(--text-sm);
+}
+
+.panel-form__steppers {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.panel-form select,
+.panel-form input {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.panel-form__heading {
+  flex: 1 1 100%;
+  font-weight: var(--weight-medium);
+}
+
+.panel-form__rows {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.panel-form__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.panel-form__country {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.panel-form__step {
+  min-width: var(--tap-min);
+  padding-inline: 0;
+}
+
+.panel-form__qty {
+  min-width: 2ch;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.panel-form__left {
+  flex: 1 1 100%;
+  color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
 
@@ -906,12 +968,20 @@ button:disabled {
   font-size: var(--text-sm);
 }
 
+.dice-panel__outcome {
+  font-weight: var(--weight-bold);
+}
+
+.dice-panel__outcome--conquered { color: var(--color-success); }
+.dice-panel__outcome--failed { color: var(--color-danger); }
+.dice-panel__outcome--stopped { color: var(--color-text-muted); }
+
 .dice-panel__status--rolling {
   animation: pulse var(--duration-dice) var(--ease-out) infinite;
 }
 
 /* ── Event log (the slice's feed; CommentaryFeed replaces it in S28) ── */
-.event-log {
+.commentary-feed {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -919,13 +989,164 @@ button:disabled {
   font-size: var(--text-sm);
 }
 
-.event-log__line--turnStart {
+.commentary-feed__round {
   margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
   color: var(--color-accent);
+  font-size: var(--text-xs);
   font-weight: var(--weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.event-log__line--conquest,
-.event-log__line--gameOver {
+.commentary-feed__line--pending {
+  animation: pulse var(--duration-dice) var(--ease-out) infinite;
+}
+
+.commentary-feed__line--ai {
+  font-style: italic;
+}
+
+.slot--feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.fast-forward {
+  align-self: flex-start;
+}
+
+.fast-forward--on {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.commentary-feed__line--conquest,
+.commentary-feed__line--gameOver {
   font-weight: var(--weight-bold);
+}
+
+/* ── WorldMap (DESIGN §2, S26a) ─────────────────── */
+.world-map {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.world-map__link {
+  stroke: var(--color-border);
+  stroke-width: 1.5;
+}
+
+.world-map__disc {
+  fill: var(--owner);
+  stroke: var(--color-bg);
+  stroke-width: 2;
+}
+
+.world-map__node--pickable {
+  cursor: pointer;
+}
+
+.world-map__node--selectable-source .world-map__disc,
+.world-map__node--source .world-map__disc {
+  stroke: var(--color-accent);
+  stroke-width: 3;
+}
+
+.world-map__node--valid-target .world-map__disc,
+.world-map__node--target .world-map__disc {
+  stroke: var(--color-warning);
+  stroke-width: 3;
+}
+
+.world-map__node--under-attack .world-map__disc {
+  stroke: var(--color-danger);
+  stroke-width: 4;
+}
+
+.world-map__soldiers,
+.world-map__code {
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.world-map__soldiers {
+  dominant-baseline: central;
+  fill: var(--color-text-inverse);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: var(--weight-bold);
+}
+
+.world-map__code {
+  fill: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+/* ── GameOverDialog (DESIGN §2, §3.4) ───────────── */
+.game-over {
+  width: min(28rem, calc(100% - 2 * var(--space-4)));
+  margin: auto;
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-raised);
+}
+
+.game-over::backdrop {
+  background: rgb(0 0 0 / 0.6);
+}
+
+.game-over[open] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.game-over__title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+}
+
+.game-over__title--success { color: var(--color-success); }
+.game-over__title--danger { color: var(--color-danger); }
+
+.game-over__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* ── Accessibility helpers (DESIGN §2, S29) ─────── */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Reduced motion: the dice tumble, the shimmer and every transition stop. tokens.css also zeroes the durations. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
 }

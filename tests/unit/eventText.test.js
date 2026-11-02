@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { eventText } from '../../public/js/eventText.js';
+import { eventText, attackOutcome, turnSummary } from '../../public/js/eventText.js';
 import { playerName, ownerSlot } from '../../public/js/players.js';
 
 const game = {
@@ -62,4 +62,73 @@ describe('eventText (GAME_RULES §10)', () => {
       expect(text).not.toMatch(/undefined/);
     },
   );
+});
+
+describe('attackOutcome (DESIGN §2 DicePanel states)', () => {
+  const ev = (type, data = {}) => ({ type, data: { player: 'human', from: 'ZAF', to: 'KEN', ...data } });
+
+  it('is null when there are no events', () => {
+    expect(attackOutcome([])).toBeNull();
+  });
+
+  it('is null while an attack is still being rolled', () => {
+    expect(attackOutcome([ev('attackStart'), ev('roll')])).toBeNull();
+  });
+
+  it('reads a conquest as conquered, with the two countries', () => {
+    expect(attackOutcome([ev('attackStart'), ev('roll'), ev('conquest', { bonus: 3 })]))
+      .toEqual({ kind: 'conquered', from: 'ZAF', to: 'KEN' });
+  });
+
+  it('still reads conquered once the occupy has been played', () => {
+    expect(attackOutcome([ev('attackStart'), ev('conquest', { bonus: 3 }), ev('occupy'), ev('turnStart')]))
+      .toEqual({ kind: 'conquered', from: 'ZAF', to: 'KEN' });
+  });
+
+  it('reads attackFailed as failed', () => {
+    expect(attackOutcome([ev('attackStart'), ev('roll'), ev('attackFailed')]))
+      .toEqual({ kind: 'failed', from: 'ZAF', to: 'KEN' });
+  });
+
+  it('reads attackStopped as stopped', () => {
+    expect(attackOutcome([ev('attackStart'), ev('roll'), ev('attackStopped')]))
+      .toEqual({ kind: 'stopped', from: 'ZAF', to: 'KEN' });
+  });
+
+  it('uses the newest attack, not an earlier one', () => {
+    const events = [ev('attackStart'), ev('attackFailed'), ev('attackStart', { to: 'BRA' })];
+    expect(attackOutcome(events)).toBeNull();
+  });
+});
+
+describe('turnSummary (one line per replayed turn for screen readers, DESIGN §2)', () => {
+  const ev = (type, data = {}, round) => ({ type, round, data });
+
+  it('names who played and what they took', () => {
+    const events = [
+      ev('turnStart', { player: 'npc:KEN' }, 2),
+      ev('attackStart', { player: 'npc:KEN', from: 'KEN', to: 'BRA' }),
+      ev('roll', { player: 'npc:KEN', from: 'KEN', to: 'BRA' }),
+      ev('conquest', { player: 'npc:KEN', from: 'KEN', to: 'BRA', bonus: 3 }),
+      ev('occupy', { player: 'npc:KEN', from: 'KEN', to: 'BRA', count: 1 }),
+    ];
+    expect(turnSummary(events, game)).toBe('Kenya played. Kenya conquers Brazil and earns 3 new soldiers.');
+  });
+
+  it('is just "played" for a quiet turn', () => {
+    expect(turnSummary([ev('turnStart', { player: 'npc:KEN' }, 2), ev('skip', { player: 'npc:KEN' })], game)).toBe('Kenya played.');
+  });
+
+  it('includes an elimination and the end of the game', () => {
+    const events = [
+      ev('turnStart', { player: 'npc:KEN' }, 2),
+      ev('elimination', { player: 'human', by: 'npc:KEN' }),
+      ev('gameOver', { status: 'lost', winner: 'npc:KEN' }),
+    ];
+    expect(turnSummary(events, game)).toBe('Kenya played. You are eliminated by Kenya. Defeat. Kenya wins.');
+  });
+
+  it('is empty when there is nothing to report', () => {
+    expect(turnSummary([], game)).toBe('');
+  });
 });

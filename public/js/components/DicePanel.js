@@ -3,14 +3,21 @@ import { el } from '../dom.js';
 // DESIGN §2 DicePanel: the latest roll, attacker dice on top and defender dice below, one column
 // per pair in roll order (GAME_RULES §5.3, I-7), a ring per pair. Shows only server dice.
 
+const OUTCOME_TEXT = {
+  conquered: (to) => `${to} conquered`,
+  failed: (to) => `Attack on ${to} failed`,
+  stopped: (to) => `Attack on ${to} stopped`,
+};
+
 /**
  * @param {object} props
  * @param {{ data: object } | null} props.roll  the latest `roll` event, or null
  * @param {object} props.game
  * @param {boolean} [props.rolling]  a roll request is on its way: tumble, no values
+ * @param {{ kind: 'conquered' | 'failed' | 'stopped', to: string } | null} [props.outcome]  how the latest attack ended (DESIGN §2 states)
  * @returns {HTMLElement}
  */
-export function render({ roll, game, rolling = false }) {
+export function render({ roll, game, rolling = false, outcome = null }) {
   const panel = el('div', { class: 'dice-panel' }, el('h2', { class: 'dice-panel__title' }, 'Dice'));
 
   if (rolling) {
@@ -43,5 +50,8 @@ export function render({ roll, game, rolling = false }) {
     ),
     el('p', { class: 'dice-panel__total' }, `${d.attackerLeft} vs ${d.defenderLeft}`),
   );
+  if (outcome) {
+    panel.append(el('p', { class: `dice-panel__outcome dice-panel__outcome--${outcome.kind}` }, OUTCOME_TEXT[outcome.kind](name(outcome.to))));
+  }
   return panel;
 }

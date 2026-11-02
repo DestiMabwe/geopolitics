@@ -25,3 +25,15 @@ export function ownerSlot(game, id) {
   if (id === 'human') return 'human';
   return String(game.turnOrder.filter((p) => p !== 'human').indexOf(id) + 1);
 }
+
+/**
+ * The countries a player owns, as `[code, country]` pairs in the game's own order, for the
+ * reinforce, transfer and occupy panels. An empty list when the player owns none.
+ *
+ * @param {object} game  the public game from the server
+ * @param {string} id  a player id, e.g. `human`
+ * @returns {[string, object][]}
+ */
+export function ownedBy(game, id) {
+  return Object.entries(game.countries).filter(([, country]) => country.owner === id);
+}

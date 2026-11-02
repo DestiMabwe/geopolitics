@@ -5,6 +5,48 @@
 import { playerName } from './players.js';
 
 /**
+ * How the latest attack ended, read from the event list, for the DicePanel (DESIGN §2: conquered /
+ * failed / stopped). Looks back for the newest attack event and ignores everything else (rolls,
+ * turn starts). An attack that has started but not ended, or no attack at all, gives null.
+ * `conquest` and the `occupy` after it both read as 'conquered'.
+ *
+ * @param {{ type: string, data: object }[]} events  event docs from the server, oldest first
+ * @returns {{ kind: 'conquered' | 'failed' | 'stopped', from: string, to: string } | null}
+ */
+export function attackOutcome(events) {
+  const e = events.findLast((ev) => ev.type in ATTACK_EVENTS);
+  const kind = e && ATTACK_EVENTS[e.type];
+  return kind ? { kind, from: e.data.from, to: e.data.to } : null;
+}
+
+// The events that mark an attack's progress. `attackStart` maps to null: the newest attack has not ended.
+const ATTACK_EVENTS = {
+  attackStart: null,
+  conquest: 'conquered',
+  occupy: 'conquered',
+  attackFailed: 'failed',
+  attackStopped: 'stopped',
+};
+
+// The events worth announcing when a fast-forwarded turn is summarised for a screen reader.
+const NOTABLE = new Set(['conquest', 'elimination', 'gameOver']);
+
+/**
+ * One short line for a replayed turn, so fast-forward doesn't make a screen reader read every roll
+ * (DESIGN §2): who played, then any conquest, elimination or game-ending event, in the usual words.
+ *
+ * @param {{ type: string, data: object }[]} events  the events of the turn, oldest first
+ * @param {object} game
+ * @returns {string}  empty when there is nothing to report
+ */
+export function turnSummary(events, game) {
+  const start = events.find((e) => e.type === 'turnStart');
+  const lead = start ? `${playerName(game, start.data.player)} played.` : null;
+  const notable = events.filter((e) => NOTABLE.has(e.type)).map((e) => eventText(e, game));
+  return [lead, ...notable].filter(Boolean).join(' ');
+}
+
+/**
  * @param {{ type: string, round?: number, data: object }} event  an event doc from the server
  * @param {object} game
  * @returns {string}

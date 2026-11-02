@@ -18,3 +18,30 @@ export function el(tag, attrs = {}, ...children) {
   }
   return node;
 }
+
+/**
+ * `root.replaceChildren(...children)` that keeps keyboard focus. The game page redraws whole slots, and a
+ * rebuilt element is a new element, so focus would drop to the page. This finds the same control again
+ * (by its country code, id, label or text) and focuses it, so a keyboard player never loses their place.
+ *
+ * @param {Element} root
+ * @param {...Node} children
+ */
+export function replaceKeepingFocus(root, ...children) {
+  const active = document.activeElement;
+  const had = active && root.contains(active) ? active : null;
+  const key = had && {
+    tag: had.tagName, code: had.dataset?.code, id: had.id,
+    label: had.getAttribute('aria-label'), text: had.textContent,
+  };
+  root.replaceChildren(...children);
+  if (!key) return;
+
+  const same = (node) => {
+    if (key.code) return node.dataset.code === key.code;
+    if (key.id) return node.id === key.id;
+    if (key.label) return node.getAttribute('aria-label') === key.label;
+    return node.textContent === key.text;
+  };
+  [...root.querySelectorAll(key.tag)].find(same)?.focus({ preventScroll: true });
+}

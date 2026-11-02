@@ -42,4 +42,12 @@ describe('design tokens (DESIGN §0, §1)', () => {
     const missing = [...used].filter((name) => !defined.has(name));
     expect(missing).toEqual([]);
   });
+
+  // DESIGN §2 accessibility, PLAN S29: the dice tumble and every other animation stop for people who ask.
+  it('turns animations and transitions off under prefers-reduced-motion', () => {
+    const main = readFileSync(mainPath, 'utf8');
+    const block = main.match(/@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/)?.[1] ?? '';
+    expect(block).toMatch(/animation:\s*none/);
+    expect(block).toMatch(/transition:\s*none/);
+  });
 });
