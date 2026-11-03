@@ -20,6 +20,7 @@ export class HttpError extends Error {
 
 const GRPC_DEADLINE_EXCEEDED = 4;
 const GRPC_UNAVAILABLE = 14;
+const GRPC_FAILED_PRECONDITION = 9;
 
 /**
  * The one place errors become JSON: `{ error: { code, message } }` (ARCHITECTURE §3).
@@ -46,8 +47,14 @@ export function errorHandler(err, req, res, next) {
     console.error(err);
     return send(res, 503, 'unavailable', 'The service is unavailable right now');
   }
+  // gRPC 9 FAILED_PRECONDITION on a query means the composite index isn't deployed (the emulator never
+  // enforces them, so tests pass and production breaks). Say so in the log; the message holds the create link.
+  if (err?.code === GRPC_FAILED_PRECONDITION) {
+    console.error('Missing Firestore index (deploy firestore.indexes.json):', err);
+  } else {
+    console.error(err);
+  }
   // Unknown errors could carry internals (paths, keys), so the client gets a generic message.
-  console.error(err);
   return send(res, 500, 'internal', 'Something went wrong');
 }
 

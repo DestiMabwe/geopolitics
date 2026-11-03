@@ -121,6 +121,17 @@ Names are in `.env.example`. Real values go in your local `.env` and in Vercel. 
 | `ANTHROPIC_API_KEY` | Enables LLM commentary. Without it the game uses template lines |
 | `LLM_MODEL` | The Claude model used for commentary |
 
+### Before pointing production at a Firestore project
+
+The emulator does **not** enforce composite indexes, so a missing one passes every test and then breaks
+the live site (every logged-in player saw "Something went wrong"). Deploy them first, and wait until
+they show **Enabled** in the Firebase console:
+
+```bash
+npx firebase login
+npx firebase deploy --only firestore:indexes --project prod
+```
+
 ## Commands
 
 ```bash
