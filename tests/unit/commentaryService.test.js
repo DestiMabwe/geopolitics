@@ -173,7 +173,7 @@ describe('generateCommentary: the request (ARCHITECTURE §4.3)', () => {
 
     it('still lets the model say the winner won when status is won', async () => {
       const { system } = await systemFor({ type: 'gameOver', status: 'won', winner: 'human' });
-      expect(system).toMatch(/status is won[^.]*won the game/i);
+      expect(system).toMatch(/status is won[\s\S]{0,160}won the game/i);
     });
 
     it('says a tie is a tie for the most countries, with no invented outcome', async () => {
@@ -185,7 +185,15 @@ describe('generateCommentary: the request (ARCHITECTURE §4.3)', () => {
     // been eliminated" in the tie replies. The prompt now says each of these outright.
     it('tells the model a win means every country was conquered, so it has a true thing to say', async () => {
       const { system } = await systemFor({ type: 'gameOver', status: 'won', winner: 'human' });
-      expect(system).toMatch(/status is won[^.]*conquered every country/i);
+      expect(system).toMatch(/status is won[\s\S]{0,160}conquered every country/i);
+    });
+
+    // Second real run 2026-11-03: 4 of 5 win replies said "every country on the map". An exact sentence
+    // frame leaves the model nothing to add, and the ban on the map stays as a backstop.
+    it('gives the model an exact sentence for a win, so it has no room to mention the map', async () => {
+      const { system } = await systemFor({ type: 'gameOver', status: 'won', winner: 'human' });
+      expect(system).toMatch(/status is won, say exactly this and nothing more: "The game is over\. <winner> has conquered every country and won the game\."/);
+      expect(system).toMatch(/name[^.]*in place of <winner>/i);
     });
 
     it('bans any mention of the map, the board or the world', async () => {
