@@ -51,3 +51,41 @@ describe('design tokens (DESIGN §0, §1)', () => {
     expect(block).toMatch(/transition:\s*none/);
   });
 });
+
+// QA 2026-11-03 ISSUE-D: narrow country cards broke words mid-letter ("Jorda / n", "Warlor / d", "ZA / F").
+// `li` sets overflow-wrap: anywhere, which cards inherit, and the board forced five ~95px columns.
+describe('NationCard text (QA ISSUE-D)', () => {
+  const css = readFileSync(mainPath, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  /** Every declaration of every rule whose selector list includes `selector`, as one string. */
+  function declarationsFor(selector) {
+    const found = [];
+    for (const [, selectors, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (selectors.split(',').some((s) => s.trim() === selector)) found.push(body);
+    }
+    return found.join(';');
+  }
+
+  it('lets a card break lines only at spaces, not inside words', () => {
+    expect(declarationsFor('.nation-card')).toMatch(/overflow-wrap:\s*normal/);
+  });
+
+  it('never breaks a country code or a profile badge', () => {
+    expect(declarationsFor('.nation-card__code')).toMatch(/white-space:\s*nowrap/);
+    expect(declarationsFor('.profile-badge')).toMatch(/white-space:\s*nowrap/);
+  });
+
+  it('lets the badge drop under the owner name instead of squeezing it', () => {
+    expect(declarationsFor('.nation-card__owner-row')).toMatch(/flex-wrap:\s*wrap/);
+  });
+
+  it('keeps every board column at least 7rem wide, whatever the screen', () => {
+    const columns = [...declarationsFor('.nation-board').matchAll(/grid-template-columns:\s*([^;]+)/g)].map((m) => m[1]);
+    expect(columns.length).toBeGreaterThan(0);
+    for (const value of columns) {
+      const floor = value.match(/minmax\(\s*([\d.]+)rem/);
+      expect(floor, `"${value}" has no rem floor`).not.toBeNull();
+      expect(Number(floor[1])).toBeGreaterThanOrEqual(7);
+    }
+  });
+});

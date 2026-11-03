@@ -176,7 +176,8 @@ h3 {
 
 .nation-board {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* As many columns as fit, none narrower than 8rem, so a card never has to break a word (QA ISSUE-D). */
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
   gap: var(--space-2);
 }
 
@@ -192,10 +193,6 @@ h3 {
   .slot--board,
   .slot--action {
     grid-column: 1 / -1;
-  }
-
-  .nation-board {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -773,6 +770,8 @@ button[aria-disabled="true"] {
 .nation-card {
   display: flex;
   flex-direction: column;
+  /* `li` allows breaks anywhere and the card inherits it; names may wrap at spaces only. */
+  overflow-wrap: normal;
   gap: var(--space-1);
   width: 100%;
   min-height: calc(3 * var(--tap-min));
@@ -806,9 +805,15 @@ button[aria-disabled="true"] {
 
 .nation-card__owner-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
+}
+
+.nation-card__code,
+.profile-badge {
+  white-space: nowrap;
 }
 
 .nation-card__code,
