@@ -335,6 +335,11 @@ h3 {
   background: var(--color-danger);
 }
 
+/* A visitor to a finished game: it ended, but they neither won nor lost (QA ISSUE-F). */
+.app-header__badge--over {
+  background: var(--color-text-muted);
+}
+
 .app-header__actions {
   display: flex;
   gap: var(--space-2);
@@ -691,6 +696,15 @@ button[aria-disabled="true"] {
 
 .live-dot--stale {
   color: var(--color-warning);
+}
+
+/* Finished game: no pulse and no "live" green. */
+.live-dot--over {
+  color: var(--color-text-muted);
+}
+
+.live-dot--over::before {
+  animation: none;
 }
 
 @keyframes pulse {

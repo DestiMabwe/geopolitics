@@ -392,11 +392,12 @@ function draw() {
   p.renderHeader(p.user, {
     round: view.round,
     status: view.status,
+    isOwner: game.isOwner,
     currentPlayer: view.status === 'active' ? playerName(view, view.turnOrder[view.currentTurn]) : null,
   });
 
   banner.hidden = game.isOwner;
-  if (!game.isOwner) banner.replaceChildren(SpectatorBanner.render({ live: p.live, loggedIn: Boolean(p.user) }));
+  if (!game.isOwner) banner.replaceChildren(SpectatorBanner.render({ live: p.live, loggedIn: Boolean(p.user), status: view.status }));
 
   slot('turn-order').replaceChildren(TurnOrderBar.render({ game: view }));
   const boardProps = { game: view, selection: p.selection, roleOf: (code) => roleOf(p, code), onPick: pick };
