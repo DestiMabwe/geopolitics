@@ -3,19 +3,21 @@
 // Fast-forward only shortens the gaps: every event is still shown. Pacing never touches the game;
 // the numbers on screen are the server's (CLAUDE.md hard rules). Pure (no DOM), so it runs in the unit tests.
 
-const DEFAULT_PACE = { roll: 700, step: 400, rollFast: 120, stepFast: 120 };
+// Slowed after human testers could not follow the replay. `turn` is how long "X's turn" stays up.
+const DEFAULT_PACE = { roll: 1800, step: 1400, turn: 1500, rollFast: 120, stepFast: 120 };
 
 /**
  * The pacing from tokens.css (`--replay-*`), in milliseconds.
  *
  * @param {(name: string) => string} getValue  e.g. a computed style's `getPropertyValue`
- * @returns {{ roll: number, step: number, rollFast: number, stepFast: number }}
+ * @returns {{ roll: number, step: number, turn: number, rollFast: number, stepFast: number }}
  */
 export function readPace(getValue) {
   const ms = (name, fallback) => parseFloat(getValue(name)) || fallback;
   return {
     roll: ms('--replay-roll', DEFAULT_PACE.roll),
     step: ms('--replay-step', DEFAULT_PACE.step),
+    turn: ms('--replay-turn', DEFAULT_PACE.turn),
     rollFast: ms('--replay-roll-fast', DEFAULT_PACE.rollFast),
     stepFast: ms('--replay-step-fast', DEFAULT_PACE.stepFast),
   };
@@ -31,7 +33,8 @@ export function readPace(getValue) {
  */
 export function delayFor(event, fast, pace) {
   const roll = event.type === 'roll';
-  if (fast) return roll ? pace.rollFast : pace.stepFast;
+  if (fast) return roll ? pace.rollFast : pace.stepFast; // fast-forward drops the turn pause too
+  if (event.type === 'turnStart') return pace.turn;
   return roll ? pace.roll : pace.step;
 }
 

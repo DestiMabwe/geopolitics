@@ -6,12 +6,13 @@ import { loadFast, saveFast } from '../../public/js/fastForward.js';
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-const pace = { roll: 700, step: 400, rollFast: 120, stepFast: 120 };
+// Slowed after human testers found the replay too quick to follow (2026-11-03).
+const pace = { roll: 1800, step: 1400, turn: 1500, rollFast: 120, stepFast: 120 };
 const ev = (seq, type, data = {}) => ({ seq, type, data, round: 0, text: `line ${seq}`, aiText: null });
 
 describe('readPace (tokens.css --replay-*, DESIGN §1)', () => {
   it('reads each token in milliseconds', () => {
-    const tokens = { '--replay-roll': ' 700ms', '--replay-step': '400ms', '--replay-roll-fast': '120ms', '--replay-step-fast': '120ms' };
+    const tokens = { '--replay-roll': ' 1800ms', '--replay-step': '1400ms', '--replay-turn': '1500ms', '--replay-roll-fast': '120ms', '--replay-step-fast': '120ms' };
     expect(readPace((name) => tokens[name])).toEqual(pace);
   });
 
@@ -22,13 +23,17 @@ describe('readPace (tokens.css --replay-*, DESIGN §1)', () => {
 
 describe('delayFor (ARCHITECTURE §4.2)', () => {
   it('holds a roll longer than any other event', () => {
-    expect(delayFor(ev(1, 'roll'), false, pace)).toBe(700);
-    expect(delayFor(ev(1, 'conquest'), false, pace)).toBe(400);
+    expect(delayFor(ev(1, 'roll'), false, pace)).toBe(1800);
+    expect(delayFor(ev(1, 'conquest'), false, pace)).toBe(1400);
+  });
+
+  it('holds a turn start long enough to see whose turn it is', () => {
+    expect(delayFor(ev(1, 'turnStart'), false, pace)).toBe(1500);
   });
 
   it('uses the fast-forward pace for every event, rolls included', () => {
     expect(delayFor(ev(1, 'roll'), true, pace)).toBe(120);
-    expect(delayFor(ev(1, 'turnStart'), true, pace)).toBe(120);
+    expect(delayFor(ev(1, 'turnStart'), true, pace)).toBe(120); // fast-forward drops the turn pause too
   });
 });
 
@@ -44,16 +49,16 @@ describe('createReplay', () => {
     const { replay, onEvent } = make();
     replay.push([ev(1, 'turnStart'), ev(2, 'roll'), ev(3, 'conquest')]);
     expect(onEvent.mock.calls.map(([e]) => e.seq)).toEqual([1]);
-    await vi.advanceTimersByTimeAsync(400);
+    await vi.advanceTimersByTimeAsync(1500); // a turnStart holds the turn pause
     expect(onEvent.mock.calls.map(([e]) => e.seq)).toEqual([1, 2]);
-    await vi.advanceTimersByTimeAsync(700);
+    await vi.advanceTimersByTimeAsync(1800);
     expect(onEvent.mock.calls.map(([e]) => e.seq)).toEqual([1, 2, 3]);
   });
 
   it('says it is idle once, after the last event has had its time on screen', async () => {
     const { replay, onIdle } = make();
     replay.push([ev(1, 'roll')]);
-    await vi.advanceTimersByTimeAsync(699);
+    await vi.advanceTimersByTimeAsync(1799);
     expect(onIdle).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     expect(onIdle).toHaveBeenCalledTimes(1);
@@ -72,7 +77,7 @@ describe('createReplay', () => {
     const { replay, onEvent } = make();
     replay.push([ev(1, 'roll'), ev(2, 'roll'), ev(3, 'roll')]);
     replay.setFast(true);
-    await vi.advanceTimersByTimeAsync(700); // event 1's own slot was scheduled at normal pace
+    await vi.advanceTimersByTimeAsync(1800); // event 1's own slot was scheduled at normal pace
     expect(onEvent).toHaveBeenCalledTimes(2);
     await vi.advanceTimersByTimeAsync(120);
     expect(onEvent).toHaveBeenCalledTimes(3);
@@ -82,16 +87,16 @@ describe('createReplay', () => {
     const { replay, onEvent, onIdle } = make();
     replay.push([ev(1, 'turnStart')]);
     replay.push([ev(2, 'roll')]);
-    await vi.advanceTimersByTimeAsync(400);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(onEvent.mock.calls.map(([e]) => e.seq)).toEqual([1, 2]);
-    await vi.advanceTimersByTimeAsync(700);
+    await vi.advanceTimersByTimeAsync(1800);
     expect(onIdle).toHaveBeenCalledTimes(1);
   });
 
   it('starts again after going idle', async () => {
     const { replay, onEvent } = make();
     replay.push([ev(1, 'turnStart')]);
-    await vi.advanceTimersByTimeAsync(400);
+    await vi.advanceTimersByTimeAsync(1500);
     replay.push([ev(2, 'turnStart')]);
     expect(onEvent).toHaveBeenCalledTimes(2);
   });
@@ -101,7 +106,7 @@ describe('createReplay', () => {
     expect(replay.busy()).toBe(false);
     replay.push([ev(1, 'turnStart')]);
     expect(replay.busy()).toBe(true);
-    await vi.advanceTimersByTimeAsync(400);
+    await vi.advanceTimersByTimeAsync(1500);
     expect(replay.busy()).toBe(false);
   });
 

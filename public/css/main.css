@@ -1232,8 +1232,83 @@ button[aria-disabled="true"] {
   gap: var(--space-3);
 }
 
-.fast-forward {
-  align-self: flex-start;
+.feed-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Desktop: the log scrolls inside its panel, so the buttons stay put above it. */
+@media (min-width: 1100px) {
+  .feed-controls {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding-bottom: var(--space-2);
+    background: var(--color-bg);
+  }
+}
+
+/* ── Battle notice: short, quiet pop-ups in place of the minimized log ── */
+/* Phone and tablet: pinned under the top edge, never over the board, dice or action bar. */
+.slot--notice {
+  position: fixed;
+  top: var(--space-2);
+  inset-inline: var(--space-4);
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.slot--notice[hidden] {
+  display: none;
+}
+
+.battle-notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 28rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left: var(--space-1) solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  pointer-events: auto;
+  animation: toast-in var(--duration-base) var(--ease-out);
+}
+
+.battle-notice__reason {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.battle-notice--leaving {
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+/* Desktop: in the right column above the dice. The space is kept so nothing jumps when a notice appears. */
+@media (min-width: 1100px) {
+  .slot--notice {
+    position: static;
+    min-height: 5rem;
+    align-items: flex-start;
+    justify-content: stretch;
+  }
+
+  .slot--notice[hidden] {
+    display: none;
+  }
+
+  .battle-notice {
+    max-width: none;
+    width: 100%;
+  }
 }
 
 .fast-forward--on {

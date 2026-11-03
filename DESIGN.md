@@ -102,8 +102,9 @@
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* ── Replay pacing (read by replay.js via getComputedStyle) ── */
-  --replay-roll:       700ms;
-  --replay-step:       400ms;
+  --replay-roll:       1800ms;
+  --replay-step:       1400ms;
+  --replay-turn:       1500ms;  /* "X's turn" stays up before that country acts */
   --replay-roll-fast:  120ms;
   --replay-step-fast:  120ms;
 
@@ -145,6 +146,8 @@ Each component is one file in `public/js/components/` that exports `render(props
 | **OccupyDialog** | After a conquest, two steps: (1) "Move soldiers into {country}" with a stepper 1…`soldiers(s) − 1`. (2) "Place your +N bonus" with a stepper per owned country, like ReinforcePanel. Confirm is enabled when the bonus is fully placed | `from, to, max, bonus, owned[]` | move-in · place-bonus · submitting |
 | **FastForwardToggle** | `▶▶ Fast-forward` switch, shown during NPC turns. The setting is remembered in `localStorage` | `on` | off · on |
 | **CommentaryFeed** | Running list of commentary lines, newest at the bottom, grouped by round with a "Round n" divider. Each line shows the template text at once. For `roll`, `conquest`, `elimination` and `gameOver` lines the AI text swaps in when it arrives | `events[]` | empty ("The world holds its breath…") · populated · replaying (lines appear one at a time) · **ai-pending** (a line shows a faint "writing…" shimmer while the AI text loads) · **ai-fallback** (template shown because the AI line failed, no error shown to the player) · error (retry) |
+| **BattleNotice** | A short, quiet, non-modal pop-up for battle news, **one at a time**, in its own spot (top of the right column above the dice on desktop; pinned to the top edge on phone and tablet). Shows only while the log is minimized. Pops up for: an NPC's attack (with its reason underneath), an NPC holding or stopping, every conquest and elimination (yours included), and game over for visitors. **Never** for rolls, turn starts, reinforcements, transfers, or your own attack, hold or stop. Each stays at least 2.5s (longer for long text, up to 7s) so a quick follow-up never replaces it unread. Conquest, elimination and game over wait up to 4s for the LLM line, then swap it in place; if the LLM fails the template stays. Click to dismiss. In fast-forward, one summary pop-up per NPC turn instead | `headline, reason` | hidden · showing · leaving |
+| **LogToggle** | `Show full log` / `Hide full log`, pinned above the log. **Minimized is the default**; the choice is remembered in `localStorage`. Maximized shows the whole CommentaryFeed and no pop-ups. Whichever is visible is the live region, so nothing is announced twice | `open` | minimized · maximized |
 | **StartScreen** | Search the country list and pick one. Each row shows name, population, and soldier value. Needs login | `countries` | loading · ready · selected · submitting · error · **login-required** |
 | **GameList** | "My games": each session with your country, round, status, and last played. Continue / view | `games[]` | loading · empty ("No games yet") · populated |
 | **GameOverDialog** | Result, rounds played, countries held, "New game" / "My games" | `status, winner` | won · lost |
@@ -155,12 +158,12 @@ Each component is one file in `public/js/components/` that exports `render(props
 - **Attack:** tap one of your countries with ≥2 soldiers (the source), tap an enemy **neighbour** (the target, highlighted on the board), then press `Attack`. After that, `Roll` sends one request per click. `Stop attack` ends the turn.
 - **Transfer:** only in manoeuvre. Open TransferPanel, pick from, to, and a count, then Confirm. It can be repeated.
 - **Reinforce:** at the start of your turn from round 2, ReinforcePanel opens and blocks everything else until confirmed.
-- **NPC turns** play automatically. `replay.js` shows each returned event in order, at normal pace or at the fast-forward pace from the tokens. **Fast-forward never hides events.** It only shortens the gaps between them, and uses template commentary lines.
+- **NPC turns** play automatically. `replay.js` shows each returned event in order, at a readable pace (about 1.8s per roll, 1.4s per other event, 1.5s on each turn start) or at the fast-forward pace from the tokens. **Fast-forward never hides events.** It only shortens the gaps between them, and uses template commentary lines.
 - **Spectating:** `poll.js` fetches new events every `--poll-interval` and feeds them to `replay.js`, so a visitor sees the same dice, losses and commentary as the player. Visitors never see action buttons.
 - The client can grey out obviously illegal choices (e.g. a source with 1 soldier), but **the server is the authority**. A 422 shows a Toast.
 - DicePanel shows only server-returned dice. The tumble animation is decoration until the response arrives.
 - Commentary requests never block play. If the AI line is slow or fails, the template line simply stays.
-- CommentaryFeed is `role="log"` with `aria-live="polite"`. During fast-forward it announces only one summary line per NPC turn, so screen readers are not flooded.
+- The BattleNotice spot is a polite live region (`role="status"`) while the log is minimized; CommentaryFeed is `role="log"` with `aria-live="polite"` while maximized. Only one is on screen at a time, so nothing is announced twice. CommentaryFeed is `role="log"` with `aria-live="polite"`. During fast-forward it announces only one summary line per NPC turn, so screen readers are not flooded.
 - All interactive elements are reachable by keyboard. NationCards are `<button>`s. Focus ring: `2px solid var(--color-focus)`, offset 2px. Keys `R` = roll, `S` = stop, `F` = toggle fast-forward.
 
 ## 3. Screens and their states
@@ -211,14 +214,14 @@ won / lost. The headline uses `--color-success` / `--color-danger`, in `--font-d
 2. TurnOrderBar (horizontal scroll inside its own strip, the only allowed horizontal scroll)
 3. NationBoard: **2 columns × 5 rows**, compact cards (name, code, owner chip, soldiers, neighbours). If WorldMap exists, it sits above the board at full width, about 4:3 aspect
 4. DicePanel (`--dice-size-sm`, wrapping to two rows of pairs when there are more than 5)
-5. CommentaryFeed: last 6 lines with "Show all"
+5. Battle news: BattleNotice pinned to the top edge, and a "Show full log" button where the log was (the full CommentaryFeed opens in place when maximized)
 6. ActionBar **sticky to the bottom** (owner only), full-width buttons ≥ `--tap-min` tall, with safe-area padding. ReinforcePanel, TransferPanel, and OccupyDialog open as bottom sheets
 
 **Tablet (768–1099px):** NationBoard as **5 columns × 2 rows** at full width (WorldMap above it, if present). DicePanel and CommentaryFeed sit side by side below it. Panels become centred dialogs.
 
 **Desktop (≥ 1100px), two columns, max width `--content-max`, centred:**
 - Left (≈ 2/3): AppHeader, TurnOrderBar, NationBoard (5 × 2) with WorldMap above it if present, ActionBar inline (owner only)
-- Right (≈ 1/3): DicePanel on top, CommentaryFeed filling the remaining height, scrolling on its own. ReinforcePanel and TransferPanel dock here instead of opening as dialogs
+- Right (≈ 1/3): BattleNotice at the top (its space is kept so nothing jumps), then DicePanel, then the log buttons. Maximized, CommentaryFeed fills the remaining height, scrolling on its own under its pinned buttons. ReinforcePanel and TransferPanel dock here instead of opening as dialogs
 
 General:
 - Page gutter: `--space-4` on mobile, `--space-6` on desktop.
