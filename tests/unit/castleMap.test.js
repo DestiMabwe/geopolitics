@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { layoutCastles, shortName, project, borderLinks, gridSlots, snapToSlots, roadLength, roadsThroughCastles, GRID_ROWS, BOXES } from '../../public/js/worldMap.js';
+import { layoutCastles, shortName, project, borderLinks, gridSlots, snapToSlots, roadLength, roadsThroughCastles, tiltedSlots, groundOutline, GRID_ROWS, BOXES } from '../../public/js/worldMap.js';
 
 // The roomier castle layout (agreed design, 2026-11-03): real capital geography on a bigger canvas,
 // nudged apart enough that a castle, its name and its neighbours never touch.
@@ -147,7 +147,7 @@ describe.each([
   });
 
   it('puts every castle on a slot, each slot used once, the same slots in every game', () => {
-    const expected = gridSlots({ compact }).slots.map(key).sort();
+    const expected = tiltedSlots({ compact }).slots.map(key).sort();
     for (let seed = 1; seed <= 40; seed += 1) {
       const game = randomGame(seed);
       const { nodes } = layoutCastles(game, { compact, borders: bordersFor(game) });
@@ -193,7 +193,7 @@ describe.each([
       const borders = bordersFor(game);
       const links = borderLinks(borders);
       const snapped = snapToSlots(game, { compact });
-      const { nodes } = layoutCastles(game, { compact, borders });
+      const { ground: nodes } = layoutCastles(game, { compact, borders });
       expect(cost(nodes, links)).toBeLessThanOrEqual(cost(snapped, links) + 1e-6);
       snappedTotal += roadLength(snapped, links);
       laidOutTotal += roadLength(nodes, links);
@@ -209,7 +209,7 @@ describe.each([
       const borders = bordersFor(game);
       const links = borderLinks(borders);
       const snapped = roadsThroughCastles(snapToSlots(game, { compact }), links);
-      const laidOut = roadsThroughCastles(layoutCastles(game, { compact, borders }).nodes, links);
+      const laidOut = roadsThroughCastles(layoutCastles(game, { compact, borders }).ground, links);
       expect(laidOut).toBeLessThanOrEqual(snapped);
       before += snapped;
       after += laidOut;
@@ -231,10 +231,81 @@ describe.each([
   });
 });
 
+describe.each([
+  ['wide', false],
+  ['compact', true],
+])('the slight tabletop tilt (%s), agreed 2026-11-03', (_name, compact) => {
+  const box = compact ? BOXES.compact : BOXES.wide;
+  const { slots } = tiltedSlots({ compact });
+  const rowsOf = (arr) => [...new Set(arr.map((s) => s.row))].sort((a, b) => a - b);
+
+  it('makes far castles smaller than near ones, by a slight amount', () => {
+    const lastRow = rowsOf(slots).at(-1);
+    const far = slots.filter((s) => s.row === 0);
+    const near = slots.filter((s) => s.row === lastRow);
+    for (const s of slots) {
+      expect(s.scale).toBeGreaterThanOrEqual(0.8);
+      expect(s.scale).toBeLessThanOrEqual(1.0001);
+    }
+    expect(Math.max(...far.map((s) => s.scale))).toBeLessThan(Math.min(...near.map((s) => s.scale)));
+    expect(near[0].scale).toBeCloseTo(1, 3);
+  });
+
+  it('keeps left on the left, and packs the far rows closer together', () => {
+    const { slots: ground } = gridSlots({ compact });
+    const centre = box.width / 2;
+    for (let i = 0; i < slots.length; i += 1) {
+      expect(Math.sign(Math.round(slots[i].x - centre))).toBe(Math.sign(Math.round(ground[i].x - centre)));
+    }
+    const ys = rowsOf(slots).map((r) => slots.find((s) => s.row === r).y);
+    const gaps = ys.slice(1).map((y, i) => y - ys[i]);
+    expect(gaps[0]).toBeLessThan(gaps.at(-1)); // the far gap is shorter than the near gap
+  });
+
+  it('keeps every tilted slot inside the canvas and well apart', () => {
+    for (const { x, y } of slots) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(box.width);
+      expect(y).toBeGreaterThanOrEqual(box.padding - 0.5);
+      expect(y).toBeLessThanOrEqual(box.height - box.padding + 0.5);
+    }
+    expect(minPairDistance(Object.fromEntries(slots.map((p, i) => [i, p])))).toBeGreaterThanOrEqual(box.minDistance);
+  });
+
+  it('keeps each row level: castles in one row stay at one height', () => {
+    for (const row of rowsOf(slots)) {
+      const ys = slots.filter((s) => s.row === row).map((s) => Math.round(s.y * 100));
+      expect(new Set(ys).size).toBe(1);
+    }
+  });
+
+  it('gives each laid-out castle its tilt scale, and also returns the flat ground layout', () => {
+    const game = randomGame(9);
+    const out = layoutCastles(game, { compact });
+    for (const code of Object.keys(game)) {
+      expect(out.nodes[code].scale).toBeGreaterThanOrEqual(0.8);
+      expect(out.ground[code].scale).toBeUndefined();
+    }
+  });
+
+  it('outlines the ground as a trapezoid: the far edge narrower than the near edge, inside the canvas', () => {
+    const [farLeft, farRight, nearRight, nearLeft] = groundOutline({ compact });
+    expect(farRight.x - farLeft.x).toBeLessThan(nearRight.x - nearLeft.x);
+    expect(farLeft.y).toBeLessThan(nearLeft.y);
+    for (const p of [farLeft, farRight, nearRight, nearLeft]) {
+      expect(p.x).toBeGreaterThanOrEqual(0);
+      expect(p.x).toBeLessThanOrEqual(box.width);
+      expect(p.y).toBeGreaterThanOrEqual(0);
+      expect(p.y).toBeLessThanOrEqual(box.height);
+    }
+  });
+});
+
 describe('a game that does not have exactly ten countries', () => {
   it('still gets a layout (the geographic one), without throwing', () => {
     const { nodes } = layoutCastles({ A: { lat: 1, lng: 1 }, B: { lat: 5, lng: 9 }, C: { lat: -3, lng: 20 } });
     expect(Object.keys(nodes).sort()).toEqual(['A', 'B', 'C']);
+    for (const p of Object.values(nodes)) expect(p.scale ?? 1).toBe(1); // no tilt without the grid
   });
 });
 

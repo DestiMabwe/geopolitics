@@ -1365,16 +1365,50 @@ button[aria-disabled="true"] {
   }
 }
 
-.world-map__walls,
+/* The ground the castles stand on. Narrower at the far edge: that is the tilt. */
+.world-map__ground {
+  fill: var(--color-surface-raised);
+  fill-opacity: 0.45;
+  stroke: var(--color-border);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+
 .world-map__flag-pole,
 .world-map__flag {
   fill: var(--owner);
 }
 
-.world-map__walls {
+/* A castle is lit from the top-left. Every face is the owner's colour made lighter or darker, so a capture
+   recolours the whole castle. The plain fill comes first, for a browser that cannot mix colours. */
+.castle__face {
+  fill: var(--owner);
   stroke: var(--color-bg);
-  stroke-width: 1.5;
+  stroke-width: 0.5;
   stroke-linejoin: round;
+}
+
+.castle__face--lit {
+  fill: color-mix(in srgb, var(--owner), white 32%);
+}
+
+.castle__face--shade {
+  fill: color-mix(in srgb, var(--owner), black 38%);
+}
+
+.castle__face--roofLit {
+  fill: color-mix(in srgb, var(--owner), black 22%);
+}
+
+.castle__face--roofShade {
+  fill: color-mix(in srgb, var(--owner), black 52%);
+}
+
+/* A soft shadow on the ground, thrown away from the light. */
+.castle__shadow {
+  fill: var(--color-bg);
+  fill-opacity: 0.85;
+  filter: blur(2.2px);
 }
 
 .world-map__gate {

@@ -258,12 +258,73 @@ export function layoutCastles(countries, { compact = false, borders = null } = {
   const { width, height, padding, minDistance } = compact ? BOXES.compact : BOXES.wide;
   const box = { width, height, padding };
   if (Object.keys(countries).length !== GRID_COUNT) {
-    return { nodes: spread(stretchToFill(project(countries, box), box), { minDistance, ...box }), width, height };
+    const nodes = spread(stretchToFill(project(countries, box), box), { minDistance, ...box });
+    return { nodes, ground: nodes, width, height };
   }
   const snapped = snapToSlots(countries, { compact });
   const links = borders ? borderLinks(borders).filter(([a, b]) => a in countries && b in countries) : [];
-  const nodes = links.length ? shortenRoads(snapped, snapped, links) : snapped;
-  return { nodes, width, height };
+  const ground = links.length ? shortenRoads(snapped, snapped, links) : snapped;
+  // The tilt comes last, so the search above works on the flat ground and the roads stay short on it.
+  const nodes = Object.fromEntries(Object.entries(ground).map(([code, p]) => [code, tiltPoint(p, box)]));
+  return { nodes, ground, width, height };
+}
+
+// The slight tabletop tilt (agreed 2026-11-03). SVG cannot tilt in 3D, and a flat tilt would squash the
+// castles, so the tilt lives in the layout: the ground plane is projected in perspective, far rows closer
+// together and a little smaller, near rows full size, and every castle then stands upright at its own scale.
+// A straight road stays straight under this projection, so the roads and marches need no special case.
+const TILT = 0.19; // the far edge is 1 / (1 + TILT), about 84%, of the near edge
+
+const tiltScale = (t) => 1 / (1 + TILT * (1 - t));
+// Where depth t (0 far, 1 near) lands on screen, as a share of the height: the running total of the scale.
+const tiltDepth = (t) => (Math.log(1 + TILT) - Math.log(1 + TILT * (1 - t))) / Math.log(1 + TILT);
+
+/**
+ * One ground point, tilted. x moves toward the middle with distance, y packs the far rows closer, and
+ * `scale` is how big a castle standing there is drawn (1 at the near edge).
+ *
+ * @param {{ x: number, y: number }} p  a point on the flat ground
+ * @param {{ width: number, height: number, padding: number }} box
+ * @returns {{ x: number, y: number, scale: number }}
+ */
+export function tiltPoint(p, { width, height, padding }) {
+  const span = height - 2 * padding;
+  const t = (p.y - padding) / span;
+  const scale = tiltScale(t);
+  return { x: width / 2 + (p.x - width / 2) * scale, y: padding + tiltDepth(t) * span, scale };
+}
+
+/**
+ * The ten grid slots after the tilt (what a laid-out castle's position is always one of).
+ *
+ * @param {{ compact?: boolean }} [options]
+ * @returns {{ slots: { x: number, y: number, row: number, scale: number }[], width: number, height: number }}
+ */
+export function tiltedSlots({ compact = false } = {}) {
+  const { slots, width, height } = gridSlots({ compact });
+  const { padding } = compact ? BOXES.compact : BOXES.wide;
+  return { slots: slots.map((s) => ({ ...tiltPoint(s, { width, height, padding }), row: s.row })), width, height };
+}
+
+// How far past the outermost castles the ground reaches, on the flat ground.
+const GROUND_MARGIN = 20;
+
+/**
+ * The four corners of the ground the castles stand on, tilted: far left, far right, near right, near left.
+ * The far edge comes out narrower than the near edge, which is what makes the board look tilted.
+ *
+ * @param {{ compact?: boolean }} [options]
+ * @returns {{ x: number, y: number }[]}
+ */
+export function groundOutline({ compact = false } = {}) {
+  const box = compact ? BOXES.compact : BOXES.wide;
+  const [l, r, t, b] = [GROUND_MARGIN, box.width - GROUND_MARGIN, GROUND_MARGIN, box.height - GROUND_MARGIN];
+  return [
+    tiltPoint({ x: l, y: t }, box),
+    tiltPoint({ x: r, y: t }, box),
+    tiltPoint({ x: r, y: b }, box),
+    tiltPoint({ x: l, y: b }, box),
+  ].map(({ x, y }) => ({ x, y }));
 }
 
 // Capitals are spread wider than tall, so one scale leaves much of the canvas empty. The short axis is

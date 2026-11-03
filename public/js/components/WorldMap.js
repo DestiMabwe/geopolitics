@@ -1,10 +1,10 @@
-import { layoutCastles, borderLinks, shortName } from '../worldMap.js';
+import { layoutCastles, borderLinks, shortName, groundOutline } from '../worldMap.js';
 import { ownerSlot } from '../players.js';
-import { WALLS, GATE, FLAG_POLE, FLAG, FLAG_BOX, CROWN, RING, LABEL_Y } from '../castle.js';
+import { FACES, GATE_FACE, SHADOW, FLAG_POLE, FLAG, FLAG_BOX, CROWN, RING, LABEL_Y } from '../castle.js';
 import { flagPath } from '../flags.js';
 
-// DESIGN §2 WorldMap: inline SVG, no map library. Each country is a castle at its capital, on a roomy canvas
-// where nothing crowds. Border links are dashed roads. A castle shows its owner's colour, its soldier count
+// DESIGN §2 WorldMap: inline SVG, no map library. Each country is a 2.5D castle on a slightly tilted board:
+// far rows sit closer and a little smaller, and every castle stands upright at its own scale. Border links are dashed roads. A castle shows its owner's colour, its soldier count
 // on the gate and its name below. Tapping a castle does the same as tapping its card. It is a pointer
 // convenience: the NationBoard below has the same information and the keyboard controls, so the map is
 // hidden from assistive technology rather than doubling every tab stop. Soldiers marching between castles
@@ -62,13 +62,15 @@ export function render({ game, selection = {}, roleOf = () => null, onPick = () 
     });
   });
 
-  const castles = Object.entries(game.countries).map(([code, c]) => {
+  // Far castles first, so a nearer castle is drawn over a farther one.
+  const farToNear = Object.entries(game.countries).sort((a, b) => nodes[a[0]].y - nodes[b[0]].y || a[0].localeCompare(b[0]));
+  const castles = farToNear.map(([code, c]) => {
     const role = roleOf(code);
     const classes = ['world-map__node'];
     if (role) classes.push('world-map__node--pickable', `world-map__node--${role}`);
     if (code === from) classes.push('world-map__node--source');
     if (code === to) classes.push(game.attack ? 'world-map__node--under-attack' : 'world-map__node--target');
-    const { x, y } = nodes[code];
+    const { x, y, scale = 1 } = nodes[code];
     const name = c.name ?? code;
     const digits = String(c.soldiers);
     return svg(
@@ -76,22 +78,25 @@ export function render({ game, selection = {}, roleOf = () => null, onPick = () 
       {
         class: classes.join(' '),
         'data-code': code,
-        transform: `translate(${x} ${y})`,
+        transform: `translate(${x} ${y}) scale(${scale})`,
         style: `--owner: var(--owner-${ownerSlot(game, c.owner)})`,
       },
       svg('title', {}, `${name} (${code}): ${digits} soldiers`),
       svg('rect', { class: 'world-map__ring', ...RING }),
-      svg('path', { class: 'world-map__walls', d: WALLS }),
+      svg('ellipse', { class: 'castle__shadow', ...SHADOW }),
+      ...FACES.map((f) => svg('path', { class: `castle__face castle__face--${f.tone}`, d: f.d })),
+      svg('path', { class: 'world-map__gate', d: GATE_FACE.d }),
       svg('path', { class: 'world-map__flag-pole', d: FLAG_POLE }),
       flagFor(code),
-      svg('path', { class: 'world-map__gate', d: GATE }),
       code === home && svg('path', { class: 'world-map__crown', d: CROWN }),
       svg('text', { class: digits.length > 2 ? 'world-map__soldiers world-map__soldiers--wide' : 'world-map__soldiers', x: 0, y: 12 }, digits),
       svg('text', { class: 'world-map__name', x: 0, y: LABEL_Y }, compact ? code : shortName(name, NAME_MAX)),
     );
   });
 
-  const map = svg('svg', { class: 'world-map', viewBox: `0 0 ${width} ${height}`, 'aria-hidden': 'true' }, ...links, ...castles);
+  // The ground the castles stand on: a trapezoid, narrower at the far edge, which is what sells the tilt.
+  const ground = svg('polygon', { class: 'world-map__ground', points: groundOutline({ compact }).map((p) => `${p.x},${p.y}`).join(' ') });
+  const map = svg('svg', { class: 'world-map', viewBox: `0 0 ${width} ${height}`, 'aria-hidden': 'true' }, ground, ...links, ...castles);
   map.addEventListener('click', (event) => {
     const node = event.target.closest('[data-code]');
     if (node && roleOf(node.dataset.code)) onPick(node.dataset.code);
