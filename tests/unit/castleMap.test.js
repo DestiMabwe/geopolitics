@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { layoutCastles, shortName, project, BOXES } from '../../public/js/worldMap.js';
+import { layoutCastles, shortName, project, borderLinks, gridSlots, snapToSlots, roadLength, roadsThroughCastles, GRID_ROWS, BOXES } from '../../public/js/worldMap.js';
 
 // The roomier castle layout (agreed design, 2026-11-03): real capital geography on a bigger canvas,
 // nudged apart enough that a castle, its name and its neighbours never touch.
@@ -113,6 +113,128 @@ describe('layoutCastles uses the room it has', () => {
     const { nodes } = layoutCastles(tall);
     const plain = project(tall, BOXES.wide);
     expect(extent(nodes, 'y')).toBeCloseTo(extent(plain, 'y'), 1);
+  });
+});
+
+// Each country borders its three nearest, like the server's map, so there are roads to shorten.
+function bordersFor(game) {
+  const codes = Object.keys(game);
+  const borders = Object.fromEntries(codes.map((c) => [c, []]));
+  for (const a of codes) {
+    const nearest = codes
+      .filter((b) => b !== a)
+      .sort((b1, b2) => Math.hypot(game[a].lat - game[b1].lat, game[a].lng - game[b1].lng) - Math.hypot(game[a].lat - game[b2].lat, game[a].lng - game[b2].lng) || b1.localeCompare(b2))
+      .slice(0, 3);
+    for (const b of nearest) {
+      if (!borders[a].includes(b)) borders[a].push(b);
+      if (!borders[b].includes(a)) borders[b].push(a);
+    }
+  }
+  return borders;
+}
+
+describe.each([
+  ['wide', false],
+  ['compact', true],
+])('the castle grid (%s): even spacing, agreed 2026-11-03', (_name, compact) => {
+  const box = compact ? BOXES.compact : BOXES.wide;
+  const key = (n) => `${Math.round(n.x)},${Math.round(n.y)}`;
+
+  it('has a slot for each of the ten castles, in staggered rows', () => {
+    const rows = compact ? GRID_ROWS.compact : GRID_ROWS.wide;
+    expect(rows.reduce((a, b) => a + b, 0)).toBe(10);
+    expect(gridSlots({ compact }).slots).toHaveLength(10);
+  });
+
+  it('puts every castle on a slot, each slot used once, the same slots in every game', () => {
+    const expected = gridSlots({ compact }).slots.map(key).sort();
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const game = randomGame(seed);
+      const { nodes } = layoutCastles(game, { compact, borders: bordersFor(game) });
+      expect(Object.values(nodes).map(key).sort()).toEqual(expected);
+    }
+  });
+
+  it('gives every castle the same distance to its nearest neighbour', () => {
+    const { slots } = gridSlots({ compact });
+    const nearest = slots.map((a) => Math.min(...slots.filter((b) => b !== a).map((b) => Math.hypot(a.x - b.x, a.y - b.y))));
+    expect(Math.max(...nearest) / Math.min(...nearest)).toBeLessThan(1.08);
+  });
+
+  it('keeps every slot inside the canvas, clear of the padding, and well apart', () => {
+    const { slots } = gridSlots({ compact });
+    for (const { x, y } of slots) {
+      expect(x).toBeGreaterThanOrEqual(box.padding - 0.5);
+      expect(x).toBeLessThanOrEqual(box.width - box.padding + 0.5);
+      expect(y).toBeGreaterThanOrEqual(box.padding - 0.5);
+      expect(y).toBeLessThanOrEqual(box.height - box.padding + 0.5);
+    }
+    expect(minPairDistance(Object.fromEntries(slots.map((p, i) => [i, p])))).toBeGreaterThanOrEqual(box.minDistance);
+  });
+
+  it('keeps north above south: the starting placement orders the rows by latitude', () => {
+    const game = randomGame(11);
+    const { nodes } = layoutCastles(game, { compact }); // no borders: pure geography snap
+    const byLat = Object.keys(game).sort((a, b) => game[b].lat - game[a].lat);
+    const northThree = byLat.slice(0, 2).map((c) => nodes[c].y);
+    const southTwo = byLat.slice(-2).map((c) => nodes[c].y);
+    expect(Math.max(...northThree)).toBeLessThanOrEqual(Math.min(...southTwo));
+  });
+
+  // The search trades road length against roads running through castles (a road through a castle reads as a
+  // road to it), so a single game's roads can get a little longer to clear one. The cost never rises, and
+  // across games the roads are still shorter.
+  it('never makes the layout worse than the plain geography snap, and shortens the roads overall', () => {
+    const cost = (nodes, links) => roadLength(nodes, links) + 400 * roadsThroughCastles(nodes, links);
+    let snappedTotal = 0;
+    let laidOutTotal = 0;
+    for (let seed = 1; seed <= 60; seed += 1) {
+      const game = randomGame(seed);
+      const borders = bordersFor(game);
+      const links = borderLinks(borders);
+      const snapped = snapToSlots(game, { compact });
+      const { nodes } = layoutCastles(game, { compact, borders });
+      expect(cost(nodes, links)).toBeLessThanOrEqual(cost(snapped, links) + 1e-6);
+      snappedTotal += roadLength(snapped, links);
+      laidOutTotal += roadLength(nodes, links);
+    }
+    expect(laidOutTotal).toBeLessThan(snappedTotal);
+  });
+
+  it('keeps roads from passing through a third castle, which would read as a road to it', () => {
+    let before = 0;
+    let after = 0;
+    for (let seed = 1; seed <= 60; seed += 1) {
+      const game = randomGame(seed);
+      const borders = bordersFor(game);
+      const links = borderLinks(borders);
+      const snapped = roadsThroughCastles(snapToSlots(game, { compact }), links);
+      const laidOut = roadsThroughCastles(layoutCastles(game, { compact, borders }).nodes, links);
+      expect(laidOut).toBeLessThanOrEqual(snapped);
+      before += snapped;
+      after += laidOut;
+    }
+    expect(after).toBeLessThan(before);
+  });
+
+  it('counts a road that passes through a castle, and not one that only has castles at its ends', () => {
+    const nodes = { A: { x: 0, y: 0 }, B: { x: 100, y: 0 }, C: { x: 200, y: 0 }, D: { x: 100, y: 120 } };
+    expect(roadsThroughCastles(nodes, [['A', 'C']])).toBe(1); // B stands on the road
+    expect(roadsThroughCastles(nodes, [['A', 'B'], ['B', 'C'], ['B', 'D']])).toBe(0);
+  });
+
+  it('gives the same layout every time, in whatever order the countries are listed', () => {
+    const game = randomGame(5);
+    const borders = bordersFor(game);
+    const reversed = Object.fromEntries(Object.entries(game).reverse());
+    expect(layoutCastles(reversed, { compact, borders }).nodes).toEqual(layoutCastles(game, { compact, borders }).nodes);
+  });
+});
+
+describe('a game that does not have exactly ten countries', () => {
+  it('still gets a layout (the geographic one), without throwing', () => {
+    const { nodes } = layoutCastles({ A: { lat: 1, lng: 1 }, B: { lat: 5, lng: 9 }, C: { lat: -3, lng: 20 } });
+    expect(Object.keys(nodes).sort()).toEqual(['A', 'B', 'C']);
   });
 });
 

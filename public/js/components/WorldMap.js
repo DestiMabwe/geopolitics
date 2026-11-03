@@ -35,7 +35,7 @@ export function isCompact() {
  * @returns {SVGSVGElement}
  */
 export function render({ game, selection = {}, roleOf = () => null, onPick = () => {}, compact = isCompact() }) {
-  const { nodes, width, height } = layoutCastles(game.countries, { compact });
+  const { nodes, width, height } = layoutCastles(game.countries, { compact, borders: game.borders });
   const from = game.attack?.from ?? selection.from ?? null;
   const to = game.attack?.to ?? selection.to ?? null;
   const home = game.players?.human?.homeCode ?? null;
