@@ -76,6 +76,7 @@ export async function openGame(deps) {
     replay: null,
     // The full log starts minimized; battle news arrives as pop-ups (BattleNotice) instead.
     logOpen: loadLogOpen(), notices: null, feedKey: undefined,
+    diceKey: undefined, diceSeq: null,
     marches: MarchLayer.create(), mapStage: null,
   };
   mine.replay = createReplay({
@@ -482,9 +483,23 @@ function draw() {
   }
 
   // Only the current attack's dice: the previous fight's must not linger when a new attack starts (QA ISSUE-G).
-  slot('dice').replaceChildren(
-    DicePanel.render({ roll: latestRoll(events), game: view, rolling: p.rolling, attacking: attackInProgress(events), outcome: attackOutcome(events) }),
-  );
+  // The dice are rebuilt only when something they show changes, so a redraw for another reason (a commentary
+  // line arriving, say) never cuts a tumble short. A roll newer than any shown before tumbles; the roll on
+  // screen when the page opened, and any roll in fast-forward or with reduced motion, just appears.
+  const diceSlot = slot('dice');
+  const roll = latestRoll(events);
+  const outcome = attackOutcome(events);
+  const attacking = attackInProgress(events);
+  const diceKey = JSON.stringify([roll?.seq ?? null, p.rolling, attacking, outcome, p.fast]);
+  if (diceKey !== p.diceKey || !diceSlot.hasChildNodes()) {
+    p.diceKey = diceKey;
+    const isNew = p.diceSeq !== null && roll && roll.seq > p.diceSeq;
+    if (roll) p.diceSeq = Math.max(p.diceSeq ?? 0, roll.seq);
+    else if (p.diceSeq === null) p.diceSeq = 0;
+    diceSlot.replaceChildren(
+      DicePanel.render({ roll, game: view, rolling: p.rolling, attacking, outcome, animate: Boolean(isNew) && !p.fast && !prefersReducedMotion() }),
+    );
+  }
 
   // Minimized: just the buttons, and pop-ups carry the news. Maximized: the whole log, no pop-ups.
   slot('battle-notice').hidden = p.logOpen;

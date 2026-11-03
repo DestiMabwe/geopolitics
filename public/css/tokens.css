@@ -42,6 +42,9 @@
   --dice-tie-ring:  var(--color-text-muted);
   --dice-size:      40px;
   --dice-size-sm:   28px;   /* mobile, or more than 5 dice */
+  --die:            var(--dice-size-sm);  /* the die being drawn: .die sets it per breakpoint */
+  --ring:           var(--dice-tie-ring);  /* that die's win, lose or tie ring */
+  --delay:          0ms;      /* when that die lands, set by DicePanel from its tumble plan */
 
   /* ── Type ────────────────────────────────────── */
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
