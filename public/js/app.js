@@ -4,6 +4,7 @@ import * as Toast from './components/Toast.js';
 import * as GameList from './components/GameList.js';
 import * as StartScreen from './components/StartScreen.js';
 import * as LoadError from './components/LoadError.js';
+import * as Landing from './components/Landing.js';
 import { loadErrorMessage } from './loadError.js';
 import { createApi } from './api.js';
 import * as auth from './auth.js';
@@ -141,7 +142,11 @@ async function renderHome(focus) {
   intro.hidden = Boolean(currentUser);
   games.hidden = !currentUser;
   startSection.hidden = !currentUser;
-  if (!currentUser) return;
+  if (!currentUser) {
+    // A visitor lands on a real home page, not a bare login prompt (DESIGN §3.2).
+    intro.replaceChildren(Landing.render({ onWatch: (id) => navigate(`/game/${encodeURIComponent(id)}`) }));
+    return;
+  }
 
   const mine = renderCount;
   games.replaceChildren(GameList.render({ games: null, onOpen: openFromList }));

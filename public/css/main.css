@@ -283,6 +283,169 @@ h3 {
   gap: var(--space-3);
 }
 
+/* ── Landing page, logged out (DESIGN §3.2) ────── */
+.landing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.landing__hero {
+  display: grid;
+  gap: var(--space-5);
+  align-items: center;
+}
+
+.landing__pitch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.landing__title {
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+}
+
+.landing__lead {
+  max-width: 36rem;
+  color: var(--color-text-muted);
+}
+
+.landing__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.landing__note {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.landing__preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.landing__caption {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+.landing__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.landing__heading {
+  font-size: var(--text-xl);
+}
+
+.landing__steps,
+.landing__npcs {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+}
+
+.landing__steps {
+  counter-reset: step;
+}
+
+.landing__step,
+.landing__npc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.landing__step::before {
+  counter-increment: step;
+  content: counter(step);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.landing__step-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+}
+
+.landing__step-text,
+.landing__npc-text {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.landing__npc {
+  border-top: 3px solid var(--color-border);
+}
+
+.landing__npc--warlord { border-top-color: var(--profile-warlord); }
+.landing__npc--fortress { border-top-color: var(--profile-fortress); }
+.landing__npc--opportunist { border-top-color: var(--profile-opportunist); }
+
+.landing__watch-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  max-width: 36rem;
+}
+
+.landing__input {
+  flex: 1 1 14rem;
+  min-height: var(--tap-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.landing__input[aria-invalid] {
+  border-color: var(--color-danger);
+}
+
+.landing__problem {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+@media (min-width: 768px) {
+  .landing__steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .landing__npcs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .landing__hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: var(--space-7);
+  }
+
+  .landing__title {
+    font-size: calc(var(--text-2xl) * 1.35);
+  }
+
+  .landing__steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 
 /* ── AppHeader ─────────────────────────────────── */
 .app-header {
