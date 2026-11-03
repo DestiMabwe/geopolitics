@@ -1,7 +1,8 @@
 // The words on the GameOverDialog (DESIGN §2, §3.4). Pure (no DOM). Nothing is worked out here:
 // the result, the winner and the round are the server's, and the countries held are listed by name.
 
-import { playerName, ownedBy } from './players.js';
+import { ownedBy } from './players.js';
+import { mostCountriesLine } from './eventText.js';
 
 /**
  * @param {object} game  the public game
@@ -12,7 +13,7 @@ export function gameOverSummary(game) {
   if (game.status === 'active') return null;
 
   const won = game.status === 'won';
-  const winnerLine = won ? null : game.winner ? `${playerName(game, game.winner)} wins.` : 'No single winner.';
+  const winnerLine = won ? null : mostCountriesLine(game, game.winner);
   return {
     title: won ? 'You conquered the world' : 'Defeat',
     tone: won ? 'success' : 'danger',

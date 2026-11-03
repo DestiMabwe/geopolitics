@@ -161,6 +161,22 @@ describe('toText names what happened (GAME_RULES §10)', () => {
     expect(line(samples['gameOver (lost)'])).toContain('Country B');
   });
 
+  // QA 2026-11-03 ISSUE-C: GAME_RULES §9.2 names the player with the most countries as `winner` of a
+  // loss, but "wins the game" read as if they had conquered the world.
+  it('says the winner of a loss holds the most countries, not that they won the game', () => {
+    const text = line(samples['gameOver (lost)']);
+    expect(text).toMatch(/holds the most countries/);
+    expect(text).not.toMatch(/wins?|won/);
+  });
+
+  it('still says the human wins the game when the human wins', () => {
+    expect(line(samples['gameOver (won)'])).toMatch(/wins the game/);
+  });
+
+  it('says the most countries were tied when a loss has no single winner', () => {
+    expect(line(samples['gameOver (no winner)'])).toMatch(/tied for the most countries/i);
+  });
+
   it('reports a loss with no single winner', () => {
     expect(line(samples['gameOver (no winner)'])).not.toContain('Country');
   });

@@ -50,8 +50,8 @@ describe('eventText (GAME_RULES §10)', () => {
 
   it('reports a win and a loss', () => {
     expect(line('gameOver', { status: 'won', winner: 'human' })).toBe('You conquer the world. Victory!');
-    expect(line('gameOver', { status: 'lost', winner: 'npc:KEN' })).toBe('Defeat. Kenya wins.');
-    expect(line('gameOver', { status: 'lost', winner: null })).toBe('Defeat. No single winner.');
+    expect(line('gameOver', { status: 'lost', winner: 'npc:KEN' })).toBe('Defeat. Kenya holds the most countries.');
+    expect(line('gameOver', { status: 'lost', winner: null })).toBe('Defeat. Tied for the most countries.');
   });
 
   it.each(['occupy', 'attackFailed', 'attackStopped', 'skip', 'elimination', 'reinforce', 'transfer'])(
@@ -125,7 +125,7 @@ describe('turnSummary (one line per replayed turn for screen readers, DESIGN §2
       ev('elimination', { player: 'human', by: 'npc:KEN' }),
       ev('gameOver', { status: 'lost', winner: 'npc:KEN' }),
     ];
-    expect(turnSummary(events, game)).toBe('Kenya played. You are eliminated by Kenya. Defeat. Kenya wins.');
+    expect(turnSummary(events, game)).toBe('Kenya played. You are eliminated by Kenya. Defeat. Kenya holds the most countries.');
   });
 
   it('is empty when there is nothing to report', () => {

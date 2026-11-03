@@ -63,9 +63,15 @@ export function turnSummary(events, game) {
   return [lead, ...notable].filter(Boolean).join(' ');
 }
 
+// GAME_RULES §9.2: after a loss the `winner` is only whoever owns the most countries, so say that
+// instead of "wins" (QA 2026-11-03 ISSUE-C). Shared with the Defeat dialog.
+export function mostCountriesLine(game, winner) {
+  return winner ? `${playerName(game, winner)} holds the most countries.` : 'Tied for the most countries.';
+}
+
 // The last line of a game. The human player is "you" to the owner and a named country to a visitor.
 function gameOverText(d, game) {
-  const winner = d.winner ? `${playerName(game, d.winner)} wins.` : 'No single winner.';
+  const winner = mostCountriesLine(game, d.winner);
   if (isYou(game, 'human')) return d.status === 'won' ? 'You conquer the world. Victory!' : `Defeat. ${winner}`;
   const human = playerName(game, 'human');
   return d.status === 'won' ? `${human} conquers the world. Victory!` : `${human} is defeated. ${winner}`;

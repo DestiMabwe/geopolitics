@@ -28,11 +28,11 @@ describe('gameOverSummary', () => {
     const s = gameOverSummary({ ...base, status: 'lost', winner: 'npc:KEN' });
     expect(s.tone).toBe('danger');
     expect(s.title).toBe('Defeat');
-    expect(s.winnerLine).toBe('Kenya wins.');
+    expect(s.winnerLine).toBe('Kenya holds the most countries.');
   });
 
-  it('says so when a loss has no single winner (GAME_RULES §9.2)', () => {
-    expect(gameOverSummary({ ...base, status: 'lost', winner: null }).winnerLine).toBe('No single winner.');
+  it('says the most countries were tied when a loss has no single winner (GAME_RULES §9.2)', () => {
+    expect(gameOverSummary({ ...base, status: 'lost', winner: null }).winnerLine).toBe('Tied for the most countries.');
   });
 
   it('gives no winner line for a win, since the title says it', () => {

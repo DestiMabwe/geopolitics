@@ -50,6 +50,11 @@ export function toText(event, state) {
     case 'elimination':
       return `${player(event.player)} is eliminated by ${player(event.by)}.`;
     case 'gameOver':
+      // GAME_RULES §9.2: when the human is eliminated, `winner` is only whoever owns the most countries,
+      // so a loss says that instead of "wins the game" (QA 2026-11-03 ISSUE-C).
+      if (event.status === 'lost') {
+        return event.winner ? `The game ends. ${player(event.winner)} holds the most countries.` : 'The game ends. Tied for the most countries.';
+      }
       return event.winner ? `${player(event.winner)} wins the game.` : 'The game ends with no single winner.';
     default:
       return event.type;
