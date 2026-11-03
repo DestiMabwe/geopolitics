@@ -14,10 +14,11 @@ const OUTCOME_TEXT = {
  * @param {{ data: object } | null} props.roll  the latest `roll` event, or null
  * @param {object} props.game
  * @param {boolean} [props.rolling]  a roll request is on its way: tumble, no values
+ * @param {boolean} [props.attacking]  an attack is under way but nothing has been rolled yet
  * @param {{ kind: 'conquered' | 'failed' | 'stopped', to: string } | null} [props.outcome]  how the latest attack ended (DESIGN §2 states)
  * @returns {HTMLElement}
  */
-export function render({ roll, game, rolling = false, outcome = null }) {
+export function render({ roll, game, rolling = false, attacking = false, outcome = null }) {
   const panel = el('div', { class: 'dice-panel' }, el('h2', { class: 'dice-panel__title' }, 'Dice'));
 
   if (rolling) {
@@ -25,7 +26,7 @@ export function render({ roll, game, rolling = false, outcome = null }) {
     return panel;
   }
   if (!roll) {
-    panel.append(el('p', { class: 'dice-panel__status' }, 'Pick a target to attack.'));
+    panel.append(el('p', { class: 'dice-panel__status' }, attacking ? 'No dice rolled yet.' : 'Pick a target to attack.'));
     return panel;
   }
 

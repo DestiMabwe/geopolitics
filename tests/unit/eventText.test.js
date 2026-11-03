@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { eventText, eventReason, attackOutcome, turnSummary } from '../../public/js/eventText.js';
+import { eventText, eventReason, attackOutcome, turnSummary, latestRoll, attackInProgress } from '../../public/js/eventText.js';
 import { playerName, ownerSlot } from '../../public/js/players.js';
 
 const game = {
@@ -214,5 +214,64 @@ describe('eventReason', () => {
 
   it('does not throw when the event has no data', () => {
     expect(eventReason({ type: 'skip' })).toBe('');
+  });
+});
+
+// QA 2026-11-03 ISSUE-G: the Dice panel showed the previous fight's dice when a new attack began.
+describe('latestRoll', () => {
+  const e = (type, extra = {}) => ({ type, data: {}, ...extra });
+  const roll = (id) => e('roll', { id });
+
+  it('gives null when there are no events', () => {
+    expect(latestRoll([])).toBeNull();
+  });
+
+  it('gives null when nothing has ever been rolled', () => {
+    expect(latestRoll([e('turnStart'), e('skip')])).toBeNull();
+  });
+
+  it('gives the newest roll of the attack in progress', () => {
+    const events = [e('attackStart'), roll(1), roll(2)];
+    expect(latestRoll(events)).toBe(events[2]);
+  });
+
+  it('gives null when a new attack has started and not rolled yet, even after an earlier fight', () => {
+    expect(latestRoll([e('attackStart'), roll(1), e('conquest'), e('attackStart')])).toBeNull();
+  });
+
+  it('keeps the last roll of an attack that has ended', () => {
+    const events = [e('attackStart'), roll(1), roll(2), e('attackStopped')];
+    expect(latestRoll(events)).toBe(events[2]);
+  });
+
+  it('gives null for an attack that ended without a single roll', () => {
+    expect(latestRoll([e('attackStart'), roll(1), e('attackFailed'), e('attackStart'), e('attackStopped')])).toBeNull();
+  });
+
+  it('keeps the roll across the turn changes that follow the attack', () => {
+    const events = [e('attackStart'), roll(1), e('conquest'), e('occupy'), e('turnStart')];
+    expect(latestRoll(events)).toBe(events[1]);
+  });
+});
+
+describe('attackInProgress', () => {
+  const e = (type) => ({ type, data: {} });
+
+  it('is false with no attack at all', () => {
+    expect(attackInProgress([])).toBe(false);
+    expect(attackInProgress([e('turnStart'), e('skip')])).toBe(false);
+  });
+
+  it('is true once an attack has started, rolled or not', () => {
+    expect(attackInProgress([e('attackStart')])).toBe(true);
+    expect(attackInProgress([e('attackStart'), e('roll'), e('roll')])).toBe(true);
+  });
+
+  it.each(['conquest', 'occupy', 'attackFailed', 'attackStopped'])('is false once the attack ends with %s', (end) => {
+    expect(attackInProgress([e('attackStart'), e('roll'), e(end)])).toBe(false);
+  });
+
+  it('is true again when a second attack starts after the first ended', () => {
+    expect(attackInProgress([e('attackStart'), e('attackStopped'), e('attackStart')])).toBe(true);
   });
 });

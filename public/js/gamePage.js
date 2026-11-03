@@ -11,7 +11,7 @@ import * as Toast from './components/Toast.js';
 import * as LoadError from './components/LoadError.js';
 import { loadErrorMessage } from './loadError.js';
 import { playerName } from './players.js';
-import { attackOutcome, turnSummary } from './eventText.js';
+import { attackOutcome, attackInProgress, latestRoll, turnSummary } from './eventText.js';
 import { gameOverSummary } from './gameOver.js';
 import { wantsAiLine, commentaryPath } from './commentary.js';
 import { createReplay, readPace, viewAfter, mergeEvents } from './replay.js';
@@ -418,8 +418,10 @@ function draw() {
     }
   }
 
-  const lastRoll = events.findLast((e) => e.type === 'roll') ?? null;
-  slot('dice').replaceChildren(DicePanel.render({ roll: lastRoll, game: view, rolling: p.rolling, outcome: attackOutcome(events) }));
+  // Only the current attack's dice: the previous fight's must not linger when a new attack starts (QA ISSUE-G).
+  slot('dice').replaceChildren(
+    DicePanel.render({ roll: latestRoll(events), game: view, rolling: p.rolling, attacking: attackInProgress(events), outcome: attackOutcome(events) }),
+  );
 
   const feed = slot('feed');
   replaceKeepingFocus(

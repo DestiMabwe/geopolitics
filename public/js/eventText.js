@@ -28,6 +28,32 @@ const ATTACK_EVENTS = {
   attackStopped: 'stopped',
 };
 
+/**
+ * The roll the DicePanel should show: the newest `roll` of the attack in progress (or of the newest
+ * attack, once it has ended). A roll from an earlier attack is never shown, so a fresh attack starts
+ * with an empty panel (QA 2026-11-03 ISSUE-G).
+ *
+ * @param {{ type: string }[]} events  event docs from the server, oldest first
+ * @returns {{ type: string, data: object } | null}  null when the newest attack has not rolled yet, or there is none
+ */
+export function latestRoll(events) {
+  const start = events.findLastIndex((ev) => ev.type === 'attackStart');
+  if (start === -1) return null;
+  return events.slice(start + 1).findLast((ev) => ev.type === 'roll') ?? null;
+}
+
+/**
+ * Whether the newest attack is still going: it has started and not yet been conquered, failed or
+ * stopped. The DicePanel uses it to say "No dice rolled yet" instead of "Pick a target".
+ *
+ * @param {{ type: string }[]} events  oldest first
+ * @returns {boolean}
+ */
+export function attackInProgress(events) {
+  const newest = events.findLast((ev) => ev.type in ATTACK_EVENTS);
+  return newest?.type === 'attackStart';
+}
+
 // The NPC decisions that carry a `reason` from the engine (GAME_RULES §10, S33a).
 const REASON_EVENTS = new Set(['reinforce', 'attackStart', 'skip', 'attackStopped', 'occupy']);
 
