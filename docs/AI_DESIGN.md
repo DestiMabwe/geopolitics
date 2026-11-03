@@ -25,8 +25,8 @@ The fields:
 - previousOwner: the player who held the to country until now.
 - bonus: new soldiers the conqueror earns.
 - In an elimination, player is the one eliminated and by is the one who did it.
-- status: won or lost, from the side of the human player, who is not identified. Do not report it.
-- winner: the player who won the game. A gameOver dispatch says only that the game is over and that the winner won the game, never the map, and never says who holds what. If winner is null, say only that the game ended with no single winner.
+- status: won or lost, from the side of the human player, who is not identified. Never say "won" or "lost" about that player. It tells you why the game ended: won means the winner conquered every country, and lost means the human player was eliminated and the game stopped at once.
+- winner: a player, or null. A gameOver dispatch says only that the game is over and one fact about the winner, never the map, and never who holds what beyond that fact. When status is won, say the winner has won the game. When status is lost, the winner is only the player who held the most countries when the game stopped: say they hold the most countries, and never say they won, conquered or claimed victory. If winner is null, the most countries are tied: say only that the game ended with the most countries tied. Give no number of countries.
 ```
 
 The user message is the event as a JSON string, with codes and ids replaced by names, so `from: 'BRA'` is sent as `from: 'Brazil'`. It holds only that event's fields and nothing else from the game state.
@@ -97,6 +97,7 @@ In round 7, all 15 replies were within 40 words, the longest being 26, and every
 | 2 | Invented claims survived the general rule | "Brazil holds the last country", "the board stands unclaimed" | Added a specific `gameOver` rule: only that the game is over and who won, never who holds what |
 | 3 | One roll still counted the dice instead of listing them | "throws three dice against Chile" | Changed the roll rule to "list the value of every die for both sides" |
 | 5 | Invented claim about the board, in 1 of the 3 replies for sample 4 | "Brazil has won the map" | Extended the `gameOver` rule: the winner won the game, never the map. Rounds 6 and 7 were clean, including 10 of 10 replies for sample 4 in round 6 |
+| After round 7 (2026-11-03, QA ISSUE-C) | The prompt said the winner "won the game" for every `gameOver`, but after a loss GAME_RULES §9.2 makes the winner only the player with the most countries, so a loss could be reported as a conquest. Found by reading, not seen in a run | "Thailand won the game" after the human was eliminated while other countries were still alive | Split by `status`: won says the winner won, lost says only that the winner holds the most countries and never that they won or conquered, null says the most countries are tied, and no number of countries. The server template and the Defeat dialog already read this way |
 
 ### Known limits
 
@@ -105,6 +106,7 @@ In round 7, all 15 replies were within 40 words, the longest being 26, and every
 - **Awkward wording:** roll replies can say "Brazil's Argentina" (2 of 3 in rounds 6 and 7), and one elimination reply said "Brazil eliminates the player". These are accurate but odd.
 - **Map rule outside `gameOver`:** the map rule is written for `gameOver`, and one round 6 elimination reply said "Peru's campaign ends on the map". It claims nothing about who holds what, so it was left alone.
 - **Slow calls:** one call in the 40 timed in rounds 5 and 6 took 4,918 ms, close to the 5-second limit. The rest stayed under about 2.7 seconds. A call over the limit falls back to the template line, so this costs a line of colour, not the game.
+- **Rewritten `gameOver` rules not yet run against the real model:** the 2026-11-03 change to the `winner` and `status` rules was checked only with the mocked client (the prompt's wording and that `status` is sent). The 105 real calls above used the old rules. Re-run the `gameOver` samples (a win, a loss with a winner, a tie) a few times each before relying on it.
 - **Voice:** the rules that removed invented facts also made the lines plainer than the expected lines, most clearly for `gameOver`. Accuracy was put first, because the brief and the LLM rule care about it most.
 - **Not enforced by code:** the rules are instructions to the model, so a wrong number is unlikely but not impossible. The service does not check replies against the event. A wrong line can only misdescribe an event, not change the game.
 

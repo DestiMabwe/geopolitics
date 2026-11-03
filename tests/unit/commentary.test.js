@@ -166,7 +166,7 @@ describe('toText names what happened (GAME_RULES §10)', () => {
   it('says the winner of a loss holds the most countries, not that they won the game', () => {
     const text = line(samples['gameOver (lost)']);
     expect(text).toMatch(/holds the most countries/);
-    expect(text).not.toMatch(/wins?|won/);
+    expect(text).not.toMatch(/\bwins?\b|\bwon\b/);
   });
 
   it('still says the human wins the game when the human wins', () => {

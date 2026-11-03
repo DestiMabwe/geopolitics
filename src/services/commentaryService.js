@@ -20,8 +20,8 @@ The fields:
 - previousOwner: the player who held the to country until now.
 - bonus: new soldiers the conqueror earns.
 - In an elimination, player is the one eliminated and by is the one who did it.
-- status: won or lost, from the side of the human player, who is not identified. Do not report it.
-- winner: the player who won the game. A gameOver dispatch says only that the game is over and that the winner won the game, never the map, and never says who holds what. If winner is null, say only that the game ended with no single winner.`;
+- status: won or lost, from the side of the human player, who is not identified. Never say "won" or "lost" about that player. It tells you why the game ended: won means the winner conquered every country, and lost means the human player was eliminated and the game stopped at once.
+- winner: a player, or null. A gameOver dispatch says only that the game is over and one fact about the winner, never the map, and never who holds what beyond that fact. When status is won, say the winner has won the game. When status is lost, the winner is only the player who held the most countries when the game stopped: say they hold the most countries, and never say they won, conquered or claimed victory. If winner is null, the most countries are tied: say only that the game ended with the most countries tied. Give no number of countries.`;
 
 const COUNTRY_FIELDS = ['from', 'to'];
 const PLAYER_FIELDS = ['player', 'previousOwner', 'by', 'winner'];

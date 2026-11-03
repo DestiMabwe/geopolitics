@@ -144,6 +144,57 @@ describe('generateCommentary: the request (ARCHITECTURE §4.3)', () => {
     expect(sentBody(client).model).toBe('claude-sonnet-5-5');
   });
 
+  // QA 2026-11-03 ISSUE-C: GAME_RULES §9.2 ends the game when the human is eliminated and calls the player
+  // with the most countries the `winner`. The prompt told the model the winner "won the game", so a loss
+  // could be reported as a conquest. The model gets `status` in the event, so the prompt can tell them apart.
+  describe('the gameOver rules (GAME_RULES §9.2)', () => {
+    const systemFor = async (event) => {
+      const client = mockLlm();
+      await generateCommentary(event, state, client);
+      const body = sentBody(client);
+      const content = body.messages[0].content;
+      return { system: body.system, user: typeof content === 'string' ? content : JSON.stringify(content) };
+    };
+
+    it('tells the model that after a loss the winner only holds the most countries', async () => {
+      const { system } = await systemFor(llmEvents.gameOver);
+      expect(system).toMatch(/status is lost[^.]*(held|hold|holds) the most countries/i);
+    });
+
+    it('forbids saying that the winner of a lost game won or conquered', async () => {
+      const { system } = await systemFor(llmEvents.gameOver);
+      expect(system).toMatch(/never say they (won|win)[^.]*conquered/i);
+    });
+
+    it('no longer says that the winner won the game in every case', async () => {
+      const { system } = await systemFor(llmEvents.gameOver);
+      expect(system).not.toMatch(/and that the winner won the game/i);
+    });
+
+    it('still lets the model say the winner won when status is won', async () => {
+      const { system } = await systemFor({ type: 'gameOver', status: 'won', winner: 'human' });
+      expect(system).toMatch(/status is won[^.]*won the game/i);
+    });
+
+    it('says a tie is a tie for the most countries, with no invented outcome', async () => {
+      const { system } = await systemFor({ type: 'gameOver', status: 'lost', winner: null });
+      expect(system).toMatch(/null[^.]*tied/i);
+    });
+
+    it('keeps the ban on claims about the rest of the map', async () => {
+      const { system } = await systemFor(llmEvents.gameOver);
+      expect(system).toMatch(/claim nothing about the rest of the map/i);
+      expect(system).toMatch(/give no number of countries/i);
+    });
+
+    it('sends the event with its status, so the model can tell a loss from a win', async () => {
+      const lost = await systemFor(llmEvents.gameOver);
+      const won = await systemFor({ type: 'gameOver', status: 'won', winner: 'human' });
+      expect(lost.user).toContain('"status":"lost"');
+      expect(won.user).toContain('"status":"won"');
+    });
+  });
+
   it('sends the system prompt, a short limit and no thinking', async () => {
     const client = mockLlm();
     await generateCommentary(roll, state, client);
