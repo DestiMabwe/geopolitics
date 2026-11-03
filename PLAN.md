@@ -95,7 +95,7 @@ Capacity assumed: about 4 blocks a day (2 to 4 hours of deep work with breaks). 
 | Thu 5 Nov | Buffer only. No new features. Rehearse the demo | | |
 | Fri 6 Nov | Submit | | |
 
-**Must-have (never cut):** S01–S22b, S24–S28, S30, S31a, S31b, S32, S33a, S33b.
+**Must-have (never cut):** S01–S22b, S24–S28, S30, S31a, S31b, S32, S33a, S33b, S34.
 **Cut in this order if behind:** (1) S26a WorldMap, (2) S29 polish beyond keyboard and mobile basics, (3) S23 player stats, (4) the optional replay stretch.
 **Never cut:** the AI log, tests for the engine, the spectator view, and the LLM commentary. These are the brief's required items and marked rubric rows.
 
@@ -255,6 +255,18 @@ The brief (p.5) says to show every NPC decision with a brief justification, stil
   **Done when:** a Warlord, Fortress and Opportunist each produce a reason naming the real numbers behind the choice, the 20-roll cap has its own reason, `playNpcTurn` puts a `reason` on exactly those five event types, no state is mutated, and the three exact-event tests in `npc.test.js` that the new field breaks are updated with my OK.
 - [ ] **S33b [AI] (S): Show the reasons.** `eventText.js` and CommentaryFeed show the reason as a muted second line under each NPC decision, using tokens only. It uses the template path, so fast-forward shows it too. No LLM change: the LLM only writes `roll`, `conquest`, `elimination` and `gameOver`.
   **Done when:** every NPC decision shows its reason at normal speed and in fast-forward, the stored event doc and the public `GET /events` carry `reason`, an event with no reason shows no empty line, and the client works out no numbers.
+
+## J. Gap found 2026-11-03: the page hangs on "Loading…"
+
+QA run of 2026-11-03 (ISSUE-A, extends the 2026-11-02 ISSUE-003). When Firestore is unreachable, `GET /api/games/:id` never answers (still pending after 45 s) and the browser's `fetch` has no timeout, so the home list, the country catalogue and the game page stay on "Loading…" with no error and no Retry. Seen on the dev server when the emulators were not running. Report: `.gstack/qa-reports/qa-report-localhost-2026-11-03.md`. **Must-have**: a visitor opening a shared game link must never be left staring at a spinner.
+
+- [ ] **S34 [AI tests → ME + AI shell] (S): Load timeouts and Retry.** Three layers, none touching `GAME_RULES.md`.
+  1. **Client timeout** in `public/js/api.js`: abort a request that gets no answer (`READ_TIMEOUT_MS` 10 s for GET, `WRITE_TIMEOUT_MS` 20 s for POST) and throw `ApiError(0, 'timeout', …)`. *(ME)*
+  2. **Server timeout:** `src/middleware/requestTimeout.js` answers 503 `{ error: { code: 'unavailable' } }` when a handler is silent too long, and `errorHandler.js` maps Firestore gRPC status 14 (UNAVAILABLE) and 4 (DEADLINE_EXCEEDED) to the same 503. *(ME)*
+  3. **Visible error with Retry:** `public/js/loadError.js` `loadErrorMessage(err)` (pure text, tested) *(ME)*; the Retry button on the home list, the country catalogue and the game page, mounting `requestTimeout` in `app.js`, and the CSS *(AI shell)*.
+  **Done when:** the tests in `apiTimeout.test.js`, `requestTimeout.test.js`, `loadError.test.js` and the new `errorHandler.test.js` cases pass; with the emulators stopped, a page load shows a "try again" message and a working Retry within about 10 s instead of "Loading…" forever; a quick request is unaffected and leaves no timer running; the browser still never touches Firestore.
+  *Red 2026-11-03: 17 failing tests written, stubs in `loadError.js` and `requestTimeout.js`, the two timeout constants added to `api.js`. Not yet green.*
+  *Out of scope here (left in the QA report): NPC reasons (S33), winner rule on human elimination, card text wrapping, replay speed.*
 
 ## 8. Bonus feature
 

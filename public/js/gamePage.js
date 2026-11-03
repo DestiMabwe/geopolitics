@@ -8,6 +8,8 @@ import * as GameOverDialog from './components/GameOverDialog.js';
 import * as ActionBar from './components/ActionBar.js';
 import * as SpectatorBanner from './components/SpectatorBanner.js';
 import * as Toast from './components/Toast.js';
+import * as LoadError from './components/LoadError.js';
+import { loadErrorMessage } from './loadError.js';
 import { playerName } from './players.js';
 import { attackOutcome, turnSummary } from './eventText.js';
 import { gameOverSummary } from './gameOver.js';
@@ -74,20 +76,32 @@ export async function openGame(deps) {
   });
   page = mine;
   draw();
+  await load(mine);
+}
 
+/** First load, and every Try again after a failure. */
+async function load(p) {
+  p.retryable = false;
   try {
-    await loadAll(mine);
+    await loadAll(p);
   } catch (err) {
-    if (page !== mine) return;
-    mine.error = err.status === 404 ? 'There is no game at this link.' : 'The game could not be loaded. Try refreshing.';
+    if (page !== p) return;
+    p.error = err.status === 404 ? 'There is no game at this link.' : loadErrorMessage(err);
+    p.retryable = err.status !== 404; // a missing game stays missing
   }
-  if (page !== mine) return; // left the page while loading
+  if (page !== p) return; // left the page while loading
   draw();
-  if (mine.game && !mine.game.isOwner) {
-    mine.stopPolling = startPolling(() => poll(mine), pollMs());
+  if (p.game && !p.game.isOwner) {
+    p.stopPolling = startPolling(() => poll(p), pollMs());
   } else {
-    driveNpc(mine);
+    driveNpc(p);
   }
+}
+
+function retryLoad(p) {
+  p.error = null;
+  draw(); // back to "Loading the game…" while the new attempt runs
+  load(p);
 }
 
 /** Leaves the game page: stops polling, the replay and the keyboard shortcuts. */
@@ -361,7 +375,11 @@ function draw() {
     actionBar.hidden = true;
     slot('turn-order').replaceChildren();
     slot('map').replaceChildren();
-    slot('board').replaceChildren(el('p', { class: 'game-message', 'aria-busy': String(!p.error) }, p.error ?? 'Loading the game…'));
+    slot('board').replaceChildren(
+      p.error
+        ? LoadError.render({ message: p.error, onRetry: p.retryable ? () => retryLoad(p) : null })
+        : el('p', { class: 'game-message', 'aria-busy': 'true' }, 'Loading the game…'),
+    );
     slot('dice').replaceChildren();
     slot('feed').replaceChildren();
     return;

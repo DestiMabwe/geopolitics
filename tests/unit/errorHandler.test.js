@@ -47,6 +47,26 @@ describe('errorHandler (ARCHITECTURE §3 error shape)', () => {
     expect(res.body.error.code).toBe('bad_json');
   });
 
+  // QA 2026-11-03 ISSUE-A: the Firestore client reports gRPC status 14 (UNAVAILABLE) when it
+  // cannot connect and 4 (DEADLINE_EXCEEDED) when it gives up waiting. Neither is the caller's fault.
+  it.each([
+    ['UNAVAILABLE', 14],
+    ['DEADLINE_EXCEEDED', 4],
+  ])('maps a Firestore %s error to 503 "unavailable"', async (_name, code) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const err = Object.assign(new Error('14 UNAVAILABLE: No connection established at C:\\secret'), { code });
+    const res = await request(appThrowing(err)).get('/boom');
+    expect(res.status).toBe(503);
+    expect(res.body.error.code).toBe('unavailable');
+    expect(JSON.stringify(res.body)).not.toContain('secret');
+  });
+
+  it('still hides an unexpected error that has some other code behind a 500', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const res = await request(appThrowing(Object.assign(new Error('x'), { code: 7 }))).get('/boom');
+    expect(res.status).toBe(500);
+  });
+
   it('hides the message of an unexpected error behind a 500', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const res = await request(appThrowing(new Error('secret key abc123 leaked'))).get('/boom');

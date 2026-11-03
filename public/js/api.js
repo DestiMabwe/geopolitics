@@ -15,8 +15,17 @@ export class ApiError extends Error {
   }
 }
 
+// QA 2026-11-03 ISSUE-A: a request the server never answers must not leave the page on "Loading…"
+// forever. Writes get longer because a roll or conquest is several database writes.
+export const READ_TIMEOUT_MS = 10_000;
+export const WRITE_TIMEOUT_MS = 20_000;
+
 /**
  * Builds the API client. `fetch` and `getToken` are passed in so tests can use fakes.
+ *
+ * - TODO(me): a request that gets no response in time is aborted (pass `signal` to fetch) and
+ *   throws `ApiError(0, 'timeout', …)`. GET waits READ_TIMEOUT_MS, POST waits WRITE_TIMEOUT_MS.
+ *   A response that arrives in time must clear the timer.
  *
  * - Every path is prefixed with `/api`.
  * - `getToken()` is called on every request. When it gives a token, send
@@ -53,13 +62,28 @@ export function createApi({ fetch, getToken }) {
       headers.set('Content-Type', 'application/json');
       body = JSON.stringify(body ?? {});
     }
+    // The timer covers the whole exchange, body included, so a server that sends headers and then
+    // stalls is also cut off. `timedOut` tells our own abort apart from a refused connection.
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(
+      () => {
+        timedOut = true;
+        controller.abort();
+      },
+      method === 'POST' ? WRITE_TIMEOUT_MS : READ_TIMEOUT_MS,
+    );
     let response;
+    let text;
     try {
-      response = await fetch(`/api${path}`, { method, headers, body });
+      response = await fetch(`/api${path}`, { method, headers, body, signal: controller.signal });
+      text = await response.text();
     } catch (err) {
+      if (timedOut) throw new ApiError(0, 'timeout', 'The server did not answer in time');
       throw new ApiError(0, 'network', err.message);
+    } finally {
+      clearTimeout(timer);
     }
-    const text = await response.text();
     let json;
     try {
       json = JSON.parse(text);
