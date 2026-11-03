@@ -15,13 +15,14 @@ import * as TransferPanel from './TransferPanel.js';
  * @param {boolean} props.pending  a request is on its way: everything disabled
  * @param {boolean} [props.replaying]  NPC events are still being replayed: nothing can be done yet
  * @param {boolean} [props.npcPaused]  an NPC turn failed to load; offers a Continue button
+ * @param {boolean} [props.autoRoll]  the Auto-roll switch: on keeps rolling until the attack ends
  * @param {'transfer' | null} [props.panel]  the open side panel; only 'transfer' exists, and only in manoeuvre
  * @param {(action: string, detail?: object) => void} props.onAction
  *   'attack' · 'skip' · 'roll' · 'stop' · 'occupy' ({ count, placements }) · 'reinforce' ({ placements })
  *   · 'transfer' ({ from, to, count }) · 'toggle-transfer' · 'npc-continue' · 'copy-link'
  * @returns {HTMLElement}
  */
-export function render({ game, selection, pending, panel = null, replaying = false, npcPaused = false, onAction }) {
+export function render({ game, selection, pending, panel = null, replaying = false, npcPaused = false, autoRoll = false, onAction }) {
   const bar = el('div', { class: 'action-bar' });
   // While a request is out the buttons are aria-disabled, not disabled: a disabled button drops keyboard
   // focus, and gamePage ignores clicks while pending anyway.
@@ -33,6 +34,16 @@ export function render({ game, selection, pending, panel = null, replaying = fal
     );
     b.addEventListener('click', () => onAction(action));
     return b;
+  };
+  // Auto-roll: a switch, not a button. Switching it off mid-attack pauses it and leaves the attack open.
+  const autoSwitch = () => {
+    const s = el(
+      'button',
+      { type: 'button', class: `button autoroll${autoRoll ? ' autoroll--on' : ''}`, role: 'switch', 'aria-checked': String(autoRoll), 'aria-keyshortcuts': 'A' },
+      'Auto-roll',
+    );
+    s.addEventListener('click', () => onAction('autoroll'));
+    return s;
   };
   const hint = (text) => el('p', { class: 'action-bar__hint' }, text);
   const current = game.turnOrder[game.currentTurn];
@@ -58,6 +69,7 @@ export function render({ game, selection, pending, panel = null, replaying = fal
     bar.append(
       hint(!from ? 'Choose a country to attack from.' : !to ? `Choose a neighbour of ${name(from)} to attack.` : `Attack ${name(to)} from ${name(from)}?`),
       button('Attack', 'attack', { primary: true, disabled: !from || !to }),
+      autoSwitch(),
       transfer,
       button('Skip', 'skip'),
     );
@@ -65,8 +77,9 @@ export function render({ game, selection, pending, panel = null, replaying = fal
   } else if (game.phase === 'attacking') {
     // GAME_RULES §6.2: no transfers while an attack is in progress.
     bar.append(
-      hint(`Attacking ${name(game.attack.to)} from ${name(game.attack.from)}.`),
+      hint(`Attacking ${name(game.attack.to)} from ${name(game.attack.from)}.${autoRoll ? ' Auto-roll is on: switch it off to roll by hand.' : ''}`),
       button('Roll', 'roll', { primary: true, key: 'R' }),
+      autoSwitch(),
       button('Stop attack', 'stop', { key: 'S' }),
       button('Transfer', 'toggle-transfer', { disabled: true }),
     );
