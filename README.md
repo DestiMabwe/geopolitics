@@ -26,6 +26,36 @@ Student Number: MBWDES001
 You win by owning all 10 countries. You lose if you are eliminated. The full rules are in
 [`GAME_RULES.md`](GAME_RULES.md).
 
+## Playing and testing the live game
+
+**Link:** https://geopolitics-peach.vercel.app
+
+1. Click **Sign up**, enter an email and a password, then pick a country and press **Begin**. This makes a
+   real account in the live Firebase project, and no email verification is needed.
+2. On your turn, press **Attack**, pick your own country, pick a neighbour, press **Attack** again, then
+   **Roll** as often as you like, or **Stop attack**. **Transfer** and **Skip** are there too. From round 2
+   you place your reinforcements first.
+3. NPC turns play on their own, one move at a time. **Fast-forward** speeds them up and still shows every move.
+4. Press **Copy link** and open it in a private window without logging in. A visitor should see
+   "You are spectating", the same board, dice and feed updating live, and no action buttons.
+
+What to look at:
+
+- Each NPC decision has a muted second line saying why it chose that.
+- Roll, conquest, elimination and game-over lines start as plain text and should turn into an italic
+  AI-written line within a second or two. If they never do, the LLM key is missing or wrong.
+- The owner sees **Victory** or **Defeat** on a finished game. A visitor sees a neutral **Game over**.
+- Country names and badges stay whole, and no two map nodes sit on top of each other.
+- Right after **Attack**, the Dice panel says "No dice rolled yet." instead of showing the last fight.
+- If the page cannot reach the server it shows a message with **Try again**, not an endless "Loading".
+
+Rough edges worth knowing about:
+
+- Narrow phone screens were only checked in an emulated narrow window, not on a real phone.
+- The LLM call has a 5 second limit. A slow call falls back to the plain template line, so now and then
+  a line will stay plain.
+- NPC turns replay at a fixed pace (about 0.4 s per step, 0.12 s with fast-forward).
+
 ## How the NPCs think
 
 Each NPC gets one of three profiles when the game is created, shown as a badge next to its name.
@@ -136,6 +166,7 @@ docs/AI_DESIGN.md   the commentary prompt and the NPC profiles
 | [`docs/AI_DESIGN.md`](docs/AI_DESIGN.md) | How the LLM commentary and the NPCs work |
 | [`AI_LOG.md`](AI_LOG.md) | One row per session: what AI did and what I did |
 | [`docs/AI_REFLECTION.md`](docs/AI_REFLECTION.md) | My reflection on using AI for this project |
+| [`.gstack/qa-reports/`](.gstack/qa-reports/) | The browser QA reports of 2026-11-02 and 2026-11-03: what was found and what was fixed |
 
 ## Known limits
 
