@@ -21,10 +21,11 @@ function svg(tag, attrs = {}, ...children) {
 }
 
 /** A small formation of pawns: a round head over a tapering body, in the owner's colour. */
-function squad(figures, color) {
+function squad(figures, color, depth = 1) {
   const group = svg('g', { class: 'march__squad', style: `--owner: ${color}` });
   // Drawn 1.5 times larger inside the squad, so a squad reads at a glance without being a crowd.
-  const formation = svg('g', { transform: 'scale(1.5)' });
+  // `depth` is the tilt scale of the castles it walks between, so a squad far up the board is smaller too.
+  const formation = svg('g', { transform: `scale(${1.5 * depth})` });
   group.append(formation);
   for (let i = 0; i < figures; i += 1) {
     const col = i % 3;
@@ -83,14 +84,15 @@ export function create() {
       if (!a || !b) return;
       element.setAttribute('viewBox', `0 0 ${width} ${height}`);
       const mid = lerp(a, b, HOLD_AT);
+      const depth = ((a.scale ?? 1) + (b.scale ?? 1)) / 2;
 
       if (plan.action === 'advance') {
         dropHeld();
-        held = squad(plan.figures, color);
+        held = squad(plan.figures, color, depth);
         element.append(held);
         walk(held, a, mid, ADVANCE_MS);
       } else if (plan.action === 'enter') {
-        const group = held ?? squad(plan.figures, color);
+        const group = held ?? squad(plan.figures, color, depth);
         held = null;
         if (!group.isConnected) element.append(group);
         walk(group, mid, b, ENTER_MS).then(() => {
@@ -98,12 +100,12 @@ export function create() {
           flash(b, color);
         });
       } else if (plan.action === 'retreat') {
-        const group = held ?? squad(plan.figures, color);
+        const group = held ?? squad(plan.figures, color, depth);
         held = null;
         if (!group.isConnected) element.append(group);
         walk(group, mid, a, ENTER_MS).then(() => group.remove());
       } else if (plan.action === 'march') {
-        const group = squad(plan.figures, color);
+        const group = squad(plan.figures, color, depth);
         element.append(group);
         walk(group, a, b, MARCH_MS).then(() => group.remove());
       }
