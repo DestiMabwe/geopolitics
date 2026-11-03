@@ -14,15 +14,18 @@ export const WALLS = [
 /** The arched gate the soldier count sits in. Dark, so the number reads against it. */
 export const GATE = 'M-9 19V8a9 9 0 0 1 18 0V19z';
 
-/** A pole and a flag above the keep, in the owner's colour. */
-export const FLAG_POLE = rect(-0.6, -28, 1.2, 10);
-export const FLAG = 'M0.6 -28h9l-3 3.5l3 3.5h-9z';
+/** A tall pole above the keep, in the owner's colour. The country's real flag flies from it. */
+export const FLAG_POLE = rect(-0.6, -36, 1.2, 18);
+/** The real flag: 4:3, like the vendored flag files, large enough to recognise. */
+export const FLAG_BOX = { x: 0.6, y: -36, width: 18, height: 13.5 };
+/** The coloured pennant shown instead if a flag image cannot be loaded. */
+export const FLAG = 'M0.6 -36h9l-3 3.5l3 3.5h-9z';
 
 /** A small crown on the left tower, marking the player's own home country. */
 export const CROWN = 'M-25 -12.5l1-5 2.7 2.4 2.8-4 2.8 4 2.7-2.4 1 5z';
 
 /** The outline that shows a castle is selected, a valid target or under attack. Also its click area. */
-export const RING = { x: -30, y: -32, width: 60, height: 56, rx: 8 };
+export const RING = { x: -30, y: -42, width: 60, height: 66, rx: 8 };
 
 /** Where the name goes, and how far down. */
 export const LABEL_Y = 36;

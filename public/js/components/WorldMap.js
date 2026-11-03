@@ -1,6 +1,7 @@
 import { layoutCastles, borderLinks, shortName } from '../worldMap.js';
 import { ownerSlot } from '../players.js';
-import { WALLS, GATE, FLAG_POLE, FLAG, CROWN, RING, LABEL_Y } from '../castle.js';
+import { WALLS, GATE, FLAG_POLE, FLAG, FLAG_BOX, CROWN, RING, LABEL_Y } from '../castle.js';
+import { flagPath } from '../flags.js';
 
 // DESIGN §2 WorldMap: inline SVG, no map library. Each country is a castle at its capital, on a roomy canvas
 // where nothing crowds. Border links are dashed roads. A castle shows its owner's colour, its soldier count
@@ -18,6 +19,19 @@ function svg(tag, attrs = {}, ...children) {
   for (const [name, value] of Object.entries(attrs)) node.setAttribute(name, String(value));
   node.append(...children.filter(Boolean)); // `cond && svg(...)` leaves false, which must not become text
   return node;
+}
+
+/**
+ * The country's real flag on its pole (not the owner's: the walls change colour to show who holds it).
+ * If the image cannot be loaded, a coloured pennant in the owner's colour takes its place.
+ */
+function flagFor(code) {
+  const url = flagPath(code);
+  const pennant = () => svg('path', { class: 'world-map__flag', d: FLAG });
+  if (!url) return pennant();
+  const image = svg('image', { class: 'world-map__flag-image', href: url, ...FLAG_BOX, preserveAspectRatio: 'none' });
+  image.addEventListener('error', () => image.replaceWith(pennant()));
+  return svg('g', { class: 'world-map__flag-group' }, image, svg('rect', { class: 'world-map__flag-frame', ...FLAG_BOX }));
 }
 
 /** True on a phone, where the portrait canvas keeps a castle finger-sized (DESIGN §4). */
@@ -69,7 +83,7 @@ export function render({ game, selection = {}, roleOf = () => null, onPick = () 
       svg('rect', { class: 'world-map__ring', ...RING }),
       svg('path', { class: 'world-map__walls', d: WALLS }),
       svg('path', { class: 'world-map__flag-pole', d: FLAG_POLE }),
-      svg('path', { class: 'world-map__flag', d: FLAG }),
+      flagFor(code),
       svg('path', { class: 'world-map__gate', d: GATE }),
       code === home && svg('path', { class: 'world-map__crown', d: CROWN }),
       svg('text', { class: digits.length > 2 ? 'world-map__soldiers world-map__soldiers--wide' : 'world-map__soldiers', x: 0, y: 12 }, digits),

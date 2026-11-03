@@ -1381,6 +1381,13 @@ button[aria-disabled="true"] {
   fill: var(--color-bg);
 }
 
+/* The country's real flag: a hairline frame in the page colour keeps pale flags from melting into the map. */
+.world-map__flag-frame {
+  fill: none;
+  stroke: var(--color-bg);
+  stroke-width: 1;
+}
+
 .world-map__crown {
   fill: var(--color-accent);
   stroke: var(--color-bg);

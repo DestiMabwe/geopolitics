@@ -187,3 +187,7 @@ docs/AI_DESIGN.md   the commentary prompt and the NPC profiles
 1. I rarely tested by hand 
 2. I changed some tests
 3. I didnt use as many AI agents as I could have 
+
+## Credits
+
+Country flags in `public/flags/` are from [flag-icons](https://github.com/lipis/flag-icons) 7.2.3 (MIT licence, included as `public/flags/LICENSE`), renamed to the game's 3-letter country codes.
