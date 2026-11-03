@@ -181,6 +181,30 @@ describe('generateCommentary: the request (ARCHITECTURE §4.3)', () => {
       expect(system).toMatch(/null[^.]*tied/i);
     });
 
+    // Real run 2026-11-03: "The map is theirs." in 3 of 5 win replies, a map mention and "Our side has
+    // been eliminated" in the tie replies. The prompt now says each of these outright.
+    it('tells the model a win means every country was conquered, so it has a true thing to say', async () => {
+      const { system } = await systemFor({ type: 'gameOver', status: 'won', winner: 'human' });
+      expect(system).toMatch(/status is won[^.]*conquered every country/i);
+    });
+
+    it('bans any mention of the map, the board or the world', async () => {
+      const { system } = await systemFor(llmEvents.gameOver);
+      expect(system).toMatch(/never mention the map, the board or the world/i);
+    });
+
+    it('tells the model to name no player when the most countries are tied', async () => {
+      const { system } = await systemFor({ type: 'gameOver', status: 'lost', winner: null });
+      expect(system).toMatch(/null[^.]*name no player/i);
+    });
+
+    it('stops the model speaking for the human player or saying they were eliminated', async () => {
+      const { system } = await systemFor(llmEvents.gameOver);
+      expect(system).toMatch(/never say anything about that player/i);
+      expect(system).toMatch(/never speak for them/i);
+      expect(system).toMatch(/"our", "we" or "your"/);
+    });
+
     it('keeps the ban on claims about the rest of the map', async () => {
       const { system } = await systemFor(llmEvents.gameOver);
       expect(system).toMatch(/claim nothing about the rest of the map/i);
