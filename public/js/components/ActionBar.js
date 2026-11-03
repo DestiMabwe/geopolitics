@@ -46,7 +46,8 @@ export function render({ game, selection, pending, panel = null, replaying = fal
   } else if (current !== 'human') {
     bar.append(
       hint(npcPaused ? `${playerName(game, current)}'s turn could not be loaded.` : `${playerName(game, current)} is playing.`),
-      npcPaused && button('Continue', 'npc-continue', { primary: true }),
+      // Spread, not `npcPaused && button(...)`: append(false) would write the text "false".
+      ...(npcPaused ? [button('Continue', 'npc-continue', { primary: true })] : []),
     );
   } else if (game.phase === 'reinforce') {
     bar.append(ReinforcePanel.render({ game, pending, onAction }));
