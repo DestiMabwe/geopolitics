@@ -12,7 +12,7 @@
 - An owner is never shown by colour alone. It always pairs with the country name or a 3-letter code (accessibility).
 - The UI only displays what the server returns. Dice, outcomes, and soldier counts are never computed in the browser.
 - The browser never talks to Firestore. All data comes from the API.
-- **Build order:** NationBoard first (it lists each country's neighbours, so attacks work without a map). WorldMap is a **stretch** component, added last if time allows.
+- **Build order:** NationBoard first (it lists each country's neighbours, so attacks work without a map). WorldMap, now a castle map with marching soldiers, came after it.
 
 ## 1. Design tokens (`public/css/tokens.css`)
 
@@ -152,7 +152,8 @@ Each component is one file in `public/js/components/` that exports `render(props
 | **GameList** | "My games": each session with your country, round, status, and last played. Continue / view | `games[]` | loading · empty ("No games yet") · populated |
 | **GameOverDialog** | Result, rounds played, countries held, "New game" / "My games" | `status, winner` | won · lost |
 | **Toast** | Short error messages (409 stale, 422 illegal, 429 slow down, network) | `message, tone` | info · error. Auto-dismisses after 4s |
-| **WorldMap** *(stretch)* | Inline SVG (no map library). Each country is a node placed at its capital (equirectangular projection, **zoomed to fit the 10 countries** with padding). Nodes show code, owner colour, and soldiers. Border links are drawn as lines between them. Tapping a node selects it, the same as tapping its card | `countries, borders, selection, phase` | default · choosing-source · choosing-target · attacking · just-conquered |
+| **WorldMap** | Inline SVG (no map library): a **castle map**. Each country is a flat, geometric castle at its capital (equirectangular projection, zoomed to fit, the short axis stretched by at most 2× and the castles then nudged apart so none touch). Canvas **640×420 (about 3:2)** on tablet and desktop, **400×520 (portrait)** under 768px so a castle stays finger-sized. A castle: owner colour on walls and flag, the soldier count on a dark gate, the short country name below (the 3-letter code on phone), a gold crown on your home country. Border links are soft dotted roads; the road an attack is using is solid, accent-coloured and flowing. A pickable, selected, target or under-attack castle gets an outline (accent, warning, danger pulse). Tapping a castle selects it, the same as tapping its card. Hidden from assistive technology: NationBoard has the same information and the keyboard controls | `countries, borders, selection, phase` | default · choosing-source · choosing-target · attacking · just-conquered |
+| **MarchLayer** | Soldiers marching between castles, in a layer of its own over the map so a redraw never wipes a march. Small geometric pawns (a head over a tapering body) in the owner's colour, **at most 5 per squad however many soldiers move**, so it is a picture and never a count. An attack declared sends a squad onto the road toward the target, where it waits while the attack lasts; a conquest marches it into the castle and a ring flashes in the new owner's colour; a failed or stopped attack marches it home; soldiers moving in after a conquest, and transfers, march from one castle to the other. **Decoration only:** the gate numbers change when the event is shown, as always. Each march takes about 1 s, inside the 1.4 s an event stays on screen. **Skipped in fast-forward and under `prefers-reduced-motion`** (every move is still shown, only the walk goes) | `plan, view` | idle · marching · waiting-on-road |
 
 ### Interaction rules
 - **Attack:** tap one of your countries with ≥2 soldiers (the source), tap an enemy **neighbour** (the target, highlighted on the board), then press `Attack`. After that, `Roll` sends one request per click. `Stop attack` ends the turn.
@@ -212,7 +213,7 @@ won / lost. The headline uses `--color-success` / `--color-danger`, in `--font-d
 **Mobile (< 768px), single column, in this order:**
 1. AppHeader (sticky top, compact). For visitors, SpectatorBanner sits directly beneath it
 2. TurnOrderBar (horizontal scroll inside its own strip, the only allowed horizontal scroll)
-3. NationBoard: **2 columns × 5 rows**, compact cards (name, code, owner chip, soldiers, neighbours). If WorldMap exists, it sits above the board at full width, about 4:3 aspect
+3. NationBoard: **2 columns × 5 rows**, compact cards (name, code, owner chip, soldiers, neighbours). The WorldMap castle map sits above the board at full width on its portrait canvas (400×520)
 4. DicePanel (`--dice-size-sm`, wrapping to two rows of pairs when there are more than 5)
 5. Battle news: BattleNotice pinned to the top edge, and a "Show full log" button where the log was (the full CommentaryFeed opens in place when maximized)
 6. ActionBar **sticky to the bottom** (owner only), full-width buttons ≥ `--tap-min` tall, with safe-area padding. ReinforcePanel, TransferPanel, and OccupyDialog open as bottom sheets

@@ -106,3 +106,57 @@ export function borderLinks(borders) {
   }
   return links.sort((a, b) => a[0].localeCompare(b[0]) || a[1].localeCompare(b[1]));
 }
+
+// The castle map's canvases (agreed design, 2026-11-03). Bigger than the old 400 by 300 circle map, because
+// a castle with its name needs more room. Wide is about 3:2 for tablets and desktops; compact is portrait,
+// so a castle is still a finger-sized target on a phone. `minDistance` keeps one castle, its name and its
+// neighbour from touching.
+export const BOXES = {
+  wide: { width: 640, height: 420, padding: 56, minDistance: 104 },
+  compact: { width: 400, height: 520, padding: 44, minDistance: 92 },
+};
+
+/**
+ * Lays the countries out for the castle map: the real capital geography (project), zoomed to fit the
+ * canvas and then pushed apart until every castle has its room (spread). Same input, same map.
+ *
+ * @param {Record<string, { lat: number, lng: number }>} countries
+ * @param {{ compact?: boolean }} [options]  compact is the portrait phone canvas
+ * @returns {{ nodes: Record<string, { x: number, y: number }>, width: number, height: number }}
+ */
+export function layoutCastles(countries, { compact = false } = {}) {
+  const { width, height, padding, minDistance } = compact ? BOXES.compact : BOXES.wide;
+  const box = { width, height, padding };
+  const nodes = spread(stretchToFill(project(countries, box), box), { minDistance, ...box });
+  return { nodes, width, height };
+}
+
+// Capitals are spread wider than tall, so one scale leaves much of the canvas empty. The short axis is
+// stretched about the middle to use the room, by at most double, so the map still looks like the world.
+const MAX_STRETCH = 2;
+
+function stretchToFill(nodes, { width, height, padding }) {
+  const pts = Object.values(nodes);
+  const [xs, ys] = [pts.map((p) => p.x), pts.map((p) => p.y)];
+  const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const factor = (span, room) => (span < 1 ? 1 : Math.min(MAX_STRETCH, Math.max(1, room / span)));
+  const sx = factor(maxX - minX, width - 2 * padding);
+  const sy = factor(maxY - minY, height - 2 * padding);
+  const [cx, cy] = [(minX + maxX) / 2, (minY + maxY) / 2];
+  return Object.fromEntries(
+    Object.entries(nodes).map(([code, p]) => [code, { x: cx + (p.x - cx) * sx, y: cy + (p.y - cy) * sy }]),
+  );
+}
+
+/**
+ * A name cut to fit under a castle: kept whole when it fits, otherwise shortened with an ellipsis
+ * (never leaving a space before it), and never longer than `max` characters.
+ *
+ * @param {string} name
+ * @param {number} max
+ * @returns {string}
+ */
+export function shortName(name, max) {
+  if (name.length <= max) return name;
+  return `${name.slice(0, max - 1).trimEnd()}…`;
+}
