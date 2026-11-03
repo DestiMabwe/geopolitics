@@ -248,7 +248,7 @@ function playMarch(p, event) {
   const plan = marchFor(event);
   if (!plan) return;
   const view = p.shown ?? p.game;
-  const layout = layoutCastles(view.countries, { compact: WorldMap.isCompact() });
+  const layout = layoutCastles(view.countries, { compact: WorldMap.isCompact(), borders: view.borders });
   p.marches.play(plan, { ...layout, color: `var(--owner-${ownerSlot(view, plan.owner)})` });
 }
 

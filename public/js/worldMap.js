@@ -116,18 +116,153 @@ export const BOXES = {
   compact: { width: 400, height: 520, padding: 44, minDistance: 92 },
 };
 
+// The castle grid (agreed 2026-11-03): a staggered honeycomb, so every castle sits the same distance from
+// its nearest neighbours. Ten castles in rows of 3-4-3 on the wide canvas, 2-3-2-3 on the phone canvas.
+export const GRID_ROWS = { wide: [3, 4, 3], compact: [2, 3, 2, 3] };
+
 /**
- * Lays the countries out for the castle map: the real capital geography (project), zoomed to fit the
- * canvas and then pushed apart until every castle has its room (spread). Same input, same map.
+ * The ten slots, row by row, left to right. Rows are centred, so a short row sits half a step in from the
+ * widest one, which is what makes the spacing even.
+ *
+ * @param {{ compact?: boolean }} [options]
+ * @returns {{ slots: { x: number, y: number, row: number }[], width: number, height: number }}
+ */
+export function gridSlots({ compact = false } = {}) {
+  const { width, height, padding } = compact ? BOXES.compact : BOXES.wide;
+  const rows = compact ? GRID_ROWS.compact : GRID_ROWS.wide;
+  const widest = Math.max(...rows);
+  const dx = (width - 2 * padding) / (widest - 1);
+  const dy = (height - 2 * padding) / (rows.length - 1);
+  const slots = rows.flatMap((n, row) =>
+    Array.from({ length: n }, (_, i) => ({ x: width / 2 + (i - (n - 1) / 2) * dx, y: padding + row * dy, row })),
+  );
+  return { slots, width, height };
+}
+
+const GRID_COUNT = 10;
+
+/**
+ * The plain geography snap: countries are dealt into the grid rows from north to south, and left to right
+ * within a row, so north stays up and west stays left. Ties break by code, so the order the countries are
+ * listed in never matters.
+ *
+ * @param {Record<string, { lat: number, lng: number }>} countries  exactly ten
+ * @param {{ compact?: boolean }} [options]
+ * @returns {Record<string, { x: number, y: number }>}
+ */
+export function snapToSlots(countries, { compact = false } = {}) {
+  const { slots, width, height } = gridSlots({ compact });
+  const { padding } = compact ? BOXES.compact : BOXES.wide;
+  const at = project(countries, { width, height, padding });
+  const rows = compact ? GRID_ROWS.compact : GRID_ROWS.wide;
+  const byNorth = Object.keys(countries).sort((a, b) => at[a].y - at[b].y || a.localeCompare(b));
+  const out = {};
+  let next = 0;
+  for (const count of rows) {
+    const rowCodes = byNorth.slice(next, next + count).sort((a, b) => at[a].x - at[b].x || a.localeCompare(b));
+    rowCodes.forEach((code, i) => {
+      const { x, y } = slots[next + i];
+      out[code] = { x, y };
+    });
+    next += count;
+  }
+  return out;
+}
+
+/**
+ * The total length of the roads for these positions.
+ *
+ * @param {Record<string, { x: number, y: number }>} nodes
+ * @param {[string, string][]} links  from borderLinks()
+ * @returns {number}
+ */
+export function roadLength(nodes, links) {
+  return links.reduce((sum, [a, b]) => (nodes[a] && nodes[b] ? sum + Math.hypot(nodes[a].x - nodes[b].x, nodes[a].y - nodes[b].y) : sum), 0);
+}
+
+// A road within this distance of a third castle reads as a road to that castle (half a castle's width plus a margin).
+const CLEARANCE = 34;
+// Large next to a road's length, so the search clears a road off a castle before it saves a few pixels.
+const BLOCKED_PENALTY = 400;
+
+const distanceToSegment = (p, a, b) => {
+  const [dx, dy] = [b.x - a.x, b.y - a.y];
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+};
+
+/**
+ * How many (road, castle) pairs have a road passing through a castle that is not one of its two ends.
+ *
+ * @param {Record<string, { x: number, y: number }>} nodes
+ * @param {[string, string][]} links  from borderLinks()
+ * @returns {number}
+ */
+export function roadsThroughCastles(nodes, links) {
+  let count = 0;
+  for (const [a, b] of links) {
+    if (!nodes[a] || !nodes[b]) continue;
+    for (const [code, p] of Object.entries(nodes)) {
+      if (code !== a && code !== b && distanceToSegment(p, nodes[a], nodes[b]) < CLEARANCE) count += 1;
+    }
+  }
+  return count;
+}
+
+// How much a castle's pull toward its real position counts against shorter roads. Small: roads decide,
+// geography only keeps the map from being turned upside down.
+const GEOGRAPHY_PULL = 0.15;
+const MAX_SWAP_PASSES = 60;
+
+/**
+ * Swaps castles between slots while that makes the roads shorter, starting from the geography snap. Each
+ * pass tries every pair in code order and keeps a swap only if the cost strictly falls, so it always
+ * stops and always gives the same answer.
+ */
+function shortenRoads(snapped, anchors, links) {
+  const codes = Object.keys(snapped).sort();
+  const pos = Object.fromEntries(codes.map((c) => [c, { ...snapped[c] }]));
+  const cost = () =>
+    roadLength(pos, links) + BLOCKED_PENALTY * roadsThroughCastles(pos, links) + GEOGRAPHY_PULL * codes.reduce((sum, c) => sum + Math.hypot(pos[c].x - anchors[c].x, pos[c].y - anchors[c].y), 0);
+  let best = cost();
+  for (let pass = 0; pass < MAX_SWAP_PASSES; pass += 1) {
+    let improved = false;
+    for (let i = 0; i < codes.length; i += 1) {
+      for (let j = i + 1; j < codes.length; j += 1) {
+        [pos[codes[i]], pos[codes[j]]] = [pos[codes[j]], pos[codes[i]]];
+        const trial = cost();
+        if (trial < best - 1e-9) {
+          best = trial;
+          improved = true;
+        } else {
+          [pos[codes[i]], pos[codes[j]]] = [pos[codes[j]], pos[codes[i]]];
+        }
+      }
+    }
+    if (!improved) break;
+  }
+  return pos;
+}
+
+/**
+ * Lays the countries out for the castle map: ten castles on an even honeycomb grid, placed so that
+ * neighbours sit close and the roads stay short, with north still up (visual only, no game rule changes).
+ * A game without exactly ten countries gets the old geographic layout. Same input, same map.
  *
  * @param {Record<string, { lat: number, lng: number }>} countries
- * @param {{ compact?: boolean }} [options]  compact is the portrait phone canvas
+ * @param {{ compact?: boolean, borders?: Record<string, string[]> }} [options]  compact is the portrait phone
+ *   canvas; `borders` (the game's own) lets the roads decide who sits where
  * @returns {{ nodes: Record<string, { x: number, y: number }>, width: number, height: number }}
  */
-export function layoutCastles(countries, { compact = false } = {}) {
+export function layoutCastles(countries, { compact = false, borders = null } = {}) {
   const { width, height, padding, minDistance } = compact ? BOXES.compact : BOXES.wide;
   const box = { width, height, padding };
-  const nodes = spread(stretchToFill(project(countries, box), box), { minDistance, ...box });
+  if (Object.keys(countries).length !== GRID_COUNT) {
+    return { nodes: spread(stretchToFill(project(countries, box), box), { minDistance, ...box }), width, height };
+  }
+  const snapped = snapToSlots(countries, { compact });
+  const links = borders ? borderLinks(borders).filter(([a, b]) => a in countries && b in countries) : [];
+  const nodes = links.length ? shortenRoads(snapped, snapped, links) : snapped;
   return { nodes, width, height };
 }
 
