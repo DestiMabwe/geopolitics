@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { project, borderLinks } from '../../public/js/worldMap.js';
+import { project, borderLinks, spread } from '../../public/js/worldMap.js';
 
 // DESIGN §2 WorldMap: an equirectangular projection, zoomed to fit the 10 countries with padding.
 
@@ -75,5 +75,72 @@ describe('borderLinks', () => {
 
   it('gives no links for no borders', () => {
     expect(borderLinks({ A: [], B: [] })).toEqual([]);
+  });
+});
+
+// QA 2026-11-03 ISSUE-J: nodes for countries with nearby capitals were drawn on top of each other.
+describe('spread', () => {
+  const BOX = { width: 400, height: 300, padding: 36 };
+  const MIN = 52;
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const pairs = (nodes) => {
+    const codes = Object.keys(nodes);
+    return codes.flatMap((a, i) => codes.slice(i + 1).map((b) => [a, b]));
+  };
+  const minGap = (nodes) => Math.min(...pairs(nodes).map(([a, b]) => dist(nodes[a], nodes[b])));
+
+  it('leaves nodes that are already far enough apart exactly where they are', () => {
+    const nodes = { A: { x: 60, y: 60 }, B: { x: 200, y: 60 }, C: { x: 340, y: 240 } };
+    expect(spread(nodes, { minDistance: MIN, ...BOX })).toEqual(nodes);
+  });
+
+  it('pulls two nodes on the very same spot at least minDistance apart', () => {
+    const out = spread({ A: { x: 200, y: 150 }, B: { x: 200, y: 150 } }, { minDistance: MIN, ...BOX });
+    expect(dist(out.A, out.B)).toBeGreaterThanOrEqual(MIN - 0.01);
+  });
+
+  it('separates a tight cluster of ten so that no two nodes are closer than minDistance', () => {
+    const cluster = Object.fromEntries(
+      Array.from({ length: 10 }, (_, i) => [`N${i}`, { x: 200 + (i % 3) * 4, y: 150 + Math.floor(i / 3) * 4 }]),
+    );
+    expect(minGap(spread(cluster, { minDistance: MIN, ...BOX }))).toBeGreaterThanOrEqual(MIN - 0.01);
+  });
+
+  it('keeps every node inside the box, clear of the padding, even when it starts in a corner', () => {
+    const corner = Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`N${i}`, { x: 36 + i, y: 36 }]));
+    const out = spread(corner, { minDistance: MIN, ...BOX });
+    for (const { x, y } of Object.values(out)) {
+      expect(x).toBeGreaterThanOrEqual(36 - 0.01);
+      expect(x).toBeLessThanOrEqual(400 - 36 + 0.01);
+      expect(y).toBeGreaterThanOrEqual(36 - 0.01);
+      expect(y).toBeLessThanOrEqual(300 - 36 + 0.01);
+    }
+    expect(minGap(out)).toBeGreaterThanOrEqual(MIN - 0.01);
+  });
+
+  it('moves only the nodes that were too close, and not far', () => {
+    const nodes = { A: { x: 60, y: 60 }, B: { x: 300, y: 200 }, C: { x: 310, y: 200 } };
+    const out = spread(nodes, { minDistance: MIN, ...BOX });
+    expect(out.A).toEqual(nodes.A);
+    expect(dist(out.B, nodes.B)).toBeLessThan(MIN);
+    expect(dist(out.C, nodes.C)).toBeLessThan(MIN);
+  });
+
+  it('gives the same answer every time', () => {
+    const nodes = { A: { x: 200, y: 150 }, B: { x: 201, y: 150 }, C: { x: 200, y: 151 } };
+    expect(spread(nodes, { minDistance: MIN, ...BOX })).toEqual(spread(nodes, { minDistance: MIN, ...BOX }));
+  });
+
+  it('keeps the same codes, and does not change what it was given', () => {
+    const nodes = { A: { x: 200, y: 150 }, B: { x: 200, y: 150 } };
+    const copy = JSON.parse(JSON.stringify(nodes));
+    const out = spread(nodes, { minDistance: MIN, ...BOX });
+    expect(Object.keys(out).sort()).toEqual(['A', 'B']);
+    expect(nodes).toEqual(copy);
+  });
+
+  it('copes with no nodes and with one node', () => {
+    expect(spread({}, { minDistance: MIN, ...BOX })).toEqual({});
+    expect(spread({ A: { x: 100, y: 100 } }, { minDistance: MIN, ...BOX })).toEqual({ A: { x: 100, y: 100 } });
   });
 });

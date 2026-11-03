@@ -1,4 +1,4 @@
-import { project, borderLinks } from '../worldMap.js';
+import { project, spread, borderLinks } from '../worldMap.js';
 import { ownerSlot } from '../players.js';
 
 // DESIGN §2 WorldMap (S26a): inline SVG, no map library. Each country sits at its capital, border links
@@ -11,6 +11,8 @@ const WIDTH = 400;
 const HEIGHT = 300;
 const PADDING = 36;
 const RADIUS = 18;
+// Two discs and the code label under each, so no two nodes are drawn closer than this (QA ISSUE-J).
+const MIN_DISTANCE = 2 * RADIUS + 16;
 
 function svg(tag, attrs = {}, ...children) {
   const node = document.createElementNS(NS, tag);
@@ -28,7 +30,9 @@ function svg(tag, attrs = {}, ...children) {
  * @returns {SVGSVGElement}
  */
 export function render({ game, selection = {}, roleOf = () => null, onPick = () => {} }) {
-  const nodes = project(game.countries, { width: WIDTH, height: HEIGHT, padding: PADDING });
+  const box = { width: WIDTH, height: HEIGHT, padding: PADDING };
+  // Capitals can be close together, so the true positions are nudged apart until nothing overlaps.
+  const nodes = spread(project(game.countries, box), { minDistance: MIN_DISTANCE, ...box });
   const from = game.attack?.from ?? selection.from ?? null;
   const to = game.attack?.to ?? selection.to ?? null;
 
