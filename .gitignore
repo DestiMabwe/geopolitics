@@ -10,3 +10,6 @@ coverage/
 firebase-export-*/
 
 *adminsdk*.json
+
+# Educator login credentials
+*.local.md
