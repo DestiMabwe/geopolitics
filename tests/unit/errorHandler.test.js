@@ -47,6 +47,18 @@ describe('errorHandler (ARCHITECTURE §3 error shape)', () => {
     expect(res.body.error.code).toBe('bad_json');
   });
 
+  // Production bug: a missing composite index is gRPC 9 (FAILED_PRECONDITION). The player still gets
+  // a generic 500 (the message names internals), but the log must say what to fix.
+  it('logs a missing Firestore index clearly and still sends a generic 500', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const err = Object.assign(new Error('9 FAILED_PRECONDITION: The query requires an index. You can create it here: https://console.firebase.google.com/x'), { code: 9 });
+    const res = await request(appThrowing(err)).get('/boom');
+    expect(res.status).toBe(500);
+    expect(res.body.error).toEqual({ code: 'internal', message: 'Something went wrong' });
+    expect(spy.mock.calls.flat().join(' ')).toMatch(/missing firestore index/i);
+    expect(res.text).not.toMatch(/console\.firebase/);
+  });
+
   // QA 2026-11-03 ISSUE-A: the Firestore client reports gRPC status 14 (UNAVAILABLE) when it
   // cannot connect and 4 (DEADLINE_EXCEEDED) when it gives up waiting. Neither is the caller's fault.
   it.each([

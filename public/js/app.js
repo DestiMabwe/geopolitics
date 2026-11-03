@@ -6,6 +6,7 @@ import * as StartScreen from './components/StartScreen.js';
 import * as LoadError from './components/LoadError.js';
 import * as Landing from './components/Landing.js';
 import { loadErrorMessage } from './loadError.js';
+import { loadHome } from './homeLoad.js';
 import { createApi } from './api.js';
 import * as auth from './auth.js';
 import { validateCredentials, authErrorMessage } from './authMessages.js';
@@ -152,10 +153,15 @@ async function renderHome(focus) {
   games.replaceChildren(GameList.render({ games: null, onOpen: openFromList }));
   if (!catalogue) startSection.replaceChildren(el('p', { class: 'game-list__empty', 'aria-busy': 'true' }, 'Loading countries…'));
   try {
-    const [{ games: list }, countries] = await Promise.all([api.get('/games'), catalogue ?? api.get('/countries')]);
-    catalogue = countries;
+    const loaded = await loadHome({ api, catalogue });
+    catalogue = loaded.catalogue;
     if (mine !== renderCount) return; // the screen moved on while loading
-    games.replaceChildren(GameList.render({ games: list, onOpen: openFromList }));
+    // A failed list must not hide the Start form: the player can still begin a game.
+    games.replaceChildren(
+      loaded.gamesError
+        ? LoadError.render({ message: loadErrorMessage(loaded.gamesError), onRetry: () => renderHome(focus) })
+        : GameList.render({ games: loaded.games, onOpen: openFromList }),
+    );
     const form = StartScreen.render({ countries: catalogue.countries, onBegin: (code) => beginGame(form, code) });
     startSection.replaceChildren(form);
     if (focus) slot(focus).scrollIntoView({ block: 'start' });
