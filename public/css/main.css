@@ -1142,26 +1142,100 @@ button[aria-disabled="true"] {
   font-size: var(--text-xs);
 }
 
+/* A real die: a cube with pips. `.die` is the stage (perspective, the ring); `.die__cube` turns. */
 .die {
-  display: inline-grid;
-  place-items: center;
-  width: var(--dice-size-sm);
-  height: var(--dice-size-sm);
+  --die: var(--dice-size-sm);
+  --ring: var(--dice-tie-ring);
+  position: relative;
+  display: inline-block;
+  width: var(--die);
+  height: var(--die);
+  perspective: calc(var(--die) * 5);
   border-radius: var(--radius-sm);
-  background: var(--dice-face);
-  color: var(--dice-pip);
-  font-family: var(--font-mono);
-  font-weight: var(--weight-bold);
-  box-shadow: 0 0 0 2px var(--dice-tie-ring);
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
-.die--win { box-shadow: 0 0 0 2px var(--dice-win-ring); }
-.die--lose { box-shadow: 0 0 0 2px var(--dice-lose-ring); }
+.die--win { --ring: var(--dice-win-ring); }
+.die--lose { --ring: var(--dice-lose-ring); }
 
 @media (min-width: 768px) {
   .die {
-    width: var(--dice-size);
-    height: var(--dice-size);
+    --die: var(--dice-size);
+  }
+}
+
+.die__cube {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.die__face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  padding: 14%;
+  border-radius: var(--radius-sm);
+  background: var(--dice-face);
+}
+
+/* Faces turned from the light are a little darker, which is what shows the cube is solid while it turns. */
+.die__face--right,
+.die__face--back {
+  background: color-mix(in srgb, var(--dice-face), black 14%);
+}
+
+.die__face--left,
+.die__face--bottom {
+  background: color-mix(in srgb, var(--dice-face), black 22%);
+}
+
+.die__pip {
+  place-self: center;
+  width: 82%;
+  height: 82%;
+  border-radius: 50%;
+  background: var(--dice-pip);
+}
+
+/* While the dice are in the air, what the roll decided stays hidden: the rings, the total and the outcome
+   appear once they have landed (the tumble lasts --duration-dice, plus each die's own delay). */
+@keyframes ring-in {
+  from {
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+  }
+}
+
+.dice-panel--tumbling .die {
+  animation: ring-in 240ms var(--ease-out) backwards;
+  animation-delay: calc(var(--duration-dice) + var(--delay, 0ms));
+}
+
+.dice-panel--tumbling .dice-panel__total,
+.dice-panel--tumbling .dice-panel__outcome {
+  animation: reveal 260ms var(--ease-out) backwards;
+  animation-delay: calc(var(--duration-dice) + 240ms);
+}
+
+/* Waiting for the server: two dice spinning, with nothing on them to read. */
+.die--idle {
+  --ring: transparent;
+}
+
+.die--idle .die__cube {
+  animation: idle-spin 1100ms linear infinite;
+}
+
+@keyframes idle-spin {
+  to {
+    transform: rotateX(360deg) rotateY(540deg);
   }
 }
 
