@@ -1385,7 +1385,8 @@ button[aria-disabled="true"] {
   }
 }
 
-.fast-forward--on {
+.fast-forward--on,
+.autoroll--on {
   border-color: var(--color-accent);
   color: var(--color-accent);
 }

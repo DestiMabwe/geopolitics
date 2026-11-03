@@ -19,6 +19,7 @@ import { gameOverSummary } from './gameOver.js';
 import { wantsAiLine, commentaryPath } from './commentary.js';
 import { createReplay, readPace, viewAfter, mergeEvents } from './replay.js';
 import { loadFast, saveFast } from './fastForward.js';
+import { shouldAutoRoll, autoDelay, loadAuto, saveAuto } from './autoroll.js';
 import { loadLogOpen, saveLogOpen } from './logView.js';
 import { noticeFor, summaryNotice } from './battleNotice.js';
 import { marchFor } from './march.js';
@@ -77,6 +78,7 @@ export async function openGame(deps) {
     // The full log starts minimized; battle news arrives as pop-ups (BattleNotice) instead.
     logOpen: loadLogOpen(), notices: null, feedKey: undefined,
     diceKey: undefined, diceSeq: null,
+    auto: loadAuto(), autoTimer: null,
     marches: MarchLayer.create(), mapStage: null,
   };
   mine.replay = createReplay({
@@ -121,6 +123,7 @@ export function closeGame() {
   page?.stopPolling?.();
   page?.replay?.clear();
   page?.notices?.clear();
+  clearTimeout(page?.autoTimer);
   page?.marches?.clear();
   GameOverDialog.dismiss(page?.dialog);
   page = null;
@@ -261,6 +264,38 @@ globalThis.matchMedia?.('(max-width: 767px)').addEventListener?.('change', () =>
   if (page) draw();
 });
 
+/** The Auto-roll switch shows on your turn, before and during an attack. */
+function autoVisible(p) {
+  const g = p.game;
+  return g.isOwner && !p.replaying && g.status === 'active' && g.turnOrder[g.currentTurn] === 'human' && (g.phase === 'manoeuvre' || g.phase === 'attacking');
+}
+
+function toggleAuto(p) {
+  if (!p || !p.game) return;
+  p.auto = !p.auto;
+  saveAuto(p.auto);
+  draw();
+  queueAutoRoll(p); // switching it on mid-attack starts rolling; switching it off cancels the next roll
+}
+
+/**
+ * Autoroll: while an attack of yours is open, send the next roll once the last one has had its time on
+ * screen. It is the ordinary roll request, one per request, so the server still rolls every die.
+ * Called after every action and whenever the switch changes; it never starts by itself on page load.
+ */
+function queueAutoRoll(p) {
+  clearTimeout(p.autoTimer);
+  p.autoTimer = null;
+  const state = () => ({ game: p.game, auto: p.auto, pending: p.pending, replaying: p.replaying });
+  if (page !== p || !shouldAutoRoll(state())) return;
+  const pace = readPace((name) => getComputedStyle(document.documentElement).getPropertyValue(name));
+  const firstRoll = latestRoll(p.events.slice(0, p.shownCount)) === null;
+  p.autoTimer = setTimeout(() => {
+    p.autoTimer = null;
+    if (page === p && shouldAutoRoll(state())) act('roll');
+  }, autoDelay({ fast: p.fast, pace, firstRoll }));
+}
+
 function toggleLog() {
   const p = page;
   if (!p) return;
@@ -325,6 +360,7 @@ const ACTIONS = {
 async function act(action, detail) {
   const p = page;
   if (action === 'copy-link') return copyLink(p);
+  if (action === 'autoroll') return toggleAuto(p);
   if (action === 'toggle-transfer') {
     if (p && !p.pending && !p.replaying) {
       p.panel = p.panel === 'transfer' ? null : 'transfer';
@@ -362,6 +398,7 @@ async function act(action, detail) {
   } catch (err) {
     if (page !== p) return;
     Toast.show(err.message, 'error');
+    p.auto = false; // whatever went wrong, do not keep rolling into it (the saved choice is kept)
     // DESIGN §3.3: a 409 (stale version, wrong phase) refetches the game and re-renders.
     if (err.status === 409) await loadAll(p).catch(() => {});
   } finally {
@@ -370,6 +407,7 @@ async function act(action, detail) {
       p.rolling = false;
       draw();
       driveNpc(p);
+      queueAutoRoll(p);
     }
   }
 }
@@ -388,6 +426,7 @@ document.addEventListener('keydown', (event) => {
   if (!page?.game || event.target.closest?.('input, select, textarea') || event.ctrlKey || event.metaKey || event.altKey) return;
   const key = event.key.toLowerCase();
   if (key === 'f' && fastForwardVisible(page)) toggleFast();
+  if (key === 'a' && autoVisible(page)) toggleAuto(page);
   if (!page.game.isOwner || page.replaying || page.game.phase !== 'attacking' || page.game.turnOrder[page.game.currentTurn] !== 'human') return;
   if (key === 'r') act('roll');
   if (key === 's') act('stop');
@@ -472,12 +511,12 @@ function draw() {
   if (game.isOwner) {
     // Rebuilt only when something it shows has changed. Commentary arriving mid-occupy would otherwise
     // wipe the bonus the player has half placed.
-    const barKey = JSON.stringify([game.version, game.status, game.phase, game.currentTurn, p.selection, p.pending, p.panel, p.replaying, p.npcPaused]);
+    const barKey = JSON.stringify([game.version, game.status, game.phase, game.currentTurn, p.selection, p.pending, p.panel, p.replaying, p.npcPaused, p.auto]);
     if (barKey !== p.barKey || !actionBar.hasChildNodes()) {
       p.barKey = barKey;
       replaceKeepingFocus(
         actionBar,
-        ActionBar.render({ game, selection: p.selection, pending: p.pending, panel: p.panel, replaying: p.replaying, npcPaused: p.npcPaused, onAction: act }),
+        ActionBar.render({ game, selection: p.selection, pending: p.pending, panel: p.panel, replaying: p.replaying, npcPaused: p.npcPaused, autoRoll: p.auto, onAction: act }),
       );
     }
   }
