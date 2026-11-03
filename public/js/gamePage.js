@@ -4,6 +4,7 @@ import * as DicePanel from './components/DicePanel.js';
 import * as CommentaryFeed from './components/CommentaryFeed.js';
 import * as FastForwardToggle from './components/FastForwardToggle.js';
 import * as WorldMap from './components/WorldMap.js';
+import * as MarchLayer from './components/MarchLayer.js';
 import * as GameOverDialog from './components/GameOverDialog.js';
 import * as ActionBar from './components/ActionBar.js';
 import * as SpectatorBanner from './components/SpectatorBanner.js';
@@ -12,7 +13,7 @@ import * as BattleNotice from './components/BattleNotice.js';
 import * as LogToggle from './components/LogToggle.js';
 import * as LoadError from './components/LoadError.js';
 import { loadErrorMessage } from './loadError.js';
-import { playerName } from './players.js';
+import { playerName, ownerSlot } from './players.js';
 import { attackOutcome, attackInProgress, latestRoll, turnSummary } from './eventText.js';
 import { gameOverSummary } from './gameOver.js';
 import { wantsAiLine, commentaryPath } from './commentary.js';
@@ -20,6 +21,8 @@ import { createReplay, readPace, viewAfter, mergeEvents } from './replay.js';
 import { loadFast, saveFast } from './fastForward.js';
 import { loadLogOpen, saveLogOpen } from './logView.js';
 import { noticeFor, summaryNotice } from './battleNotice.js';
+import { marchFor } from './march.js';
+import { layoutCastles } from './worldMap.js';
 import { startPolling } from './poll.js';
 import { el, replaceKeepingFocus } from './dom.js';
 
@@ -73,6 +76,7 @@ export async function openGame(deps) {
     replay: null,
     // The full log starts minimized; battle news arrives as pop-ups (BattleNotice) instead.
     logOpen: loadLogOpen(), notices: null, feedKey: undefined,
+    marches: MarchLayer.create(), mapStage: null,
   };
   mine.replay = createReplay({
     pace: readPace((name) => getComputedStyle(document.documentElement).getPropertyValue(name)),
@@ -116,6 +120,7 @@ export function closeGame() {
   page?.stopPolling?.();
   page?.replay?.clear();
   page?.notices?.clear();
+  page?.marches?.clear();
   GameOverDialog.dismiss(page?.dialog);
   page = null;
 }
@@ -188,6 +193,7 @@ function showEvent(p, event) {
   p.replayed.push(event);
   draw();
   pushNotice(p, event);
+  playMarch(p, event);
   // DESIGN §3.3: fast-forward uses the template lines and skips the LLM.
   if (!p.fast) requestCommentary(p, event);
 }
@@ -233,6 +239,27 @@ function pushNotice(p, event) {
   if (notice) p.notices.push(notice);
 }
 
+/**
+ * Soldiers marching between castles. Decoration only: the gate numbers already changed with the event.
+ * Skipped in fast-forward (every move is still shown, just without the walk) and with reduced motion.
+ */
+function playMarch(p, event) {
+  if (page !== p || p.fast || prefersReducedMotion()) return;
+  const plan = marchFor(event);
+  if (!plan) return;
+  const view = p.shown ?? p.game;
+  const layout = layoutCastles(view.countries, { compact: WorldMap.isCompact() });
+  p.marches.play(plan, { ...layout, color: `var(--owner-${ownerSlot(view, plan.owner)})` });
+}
+
+const prefersReducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
+// The phone and desktop canvases differ, so crossing the breakpoint redraws the map.
+globalThis.matchMedia?.('(max-width: 767px)').addEventListener?.('change', () => {
+  page?.marches?.clear();
+  if (page) draw();
+});
+
 function toggleLog() {
   const p = page;
   if (!p) return;
@@ -247,6 +274,7 @@ function toggleFast() {
   if (!p) return;
   p.fast = !p.fast;
   saveFast(p.fast);
+  if (p.fast) p.marches.clear(); // fast-forward drops the walks
   p.replay.setFast(p.fast);
   draw();
 }
@@ -322,7 +350,10 @@ async function act(action, detail) {
     p.game = res.game;
     p.events.push(...res.events);
     showAll(p); // the player's own move is shown at once; only NPC turns are replayed
-    for (const event of res.events) pushNotice(p, event); // your conquests and eliminations still pop up
+    for (const event of res.events) {
+      pushNotice(p, event); // your conquests and eliminations still pop up
+      playMarch(p, event); // and your soldiers still march
+    }
     p.selection = { from: null, to: null };
     // Transfers can repeat, so that panel stays open; any other move closes it.
     if (action !== 'transfer') p.panel = null;
@@ -433,7 +464,7 @@ function draw() {
 
   slot('turn-order').replaceChildren(TurnOrderBar.render({ game: view }));
   const boardProps = { game: view, selection: p.selection, roleOf: (code) => roleOf(p, code), onPick: pick };
-  slot('map').replaceChildren(WorldMap.render(boardProps));
+  mapBoard(p).replaceChildren(WorldMap.render(boardProps));
   replaceKeepingFocus(slot('board'), NationBoard.render(boardProps));
 
   actionBar.hidden = !game.isOwner;
@@ -480,6 +511,16 @@ function draw() {
   if (p.logOpen) feed.scrollTop = feed.scrollHeight;
 
   showGameOver(p);
+}
+
+/** The map slot holds the map and, over it, the march layer, which lives as long as the page does. */
+function mapBoard(p) {
+  const mapSlot = p.slot('map');
+  if (p.mapStage?.parentNode !== mapSlot) {
+    p.mapStage = el('div', { class: 'map-stage' }, el('div', { class: 'map-stage__board' }), p.marches.element);
+    mapSlot.replaceChildren(p.mapStage);
+  }
+  return p.mapStage.firstElementChild;
 }
 
 // DESIGN §3.3 game-over: the dialog opens over the board once the replay has played out, for the owner.
