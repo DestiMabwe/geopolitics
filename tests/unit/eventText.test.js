@@ -132,3 +132,49 @@ describe('turnSummary (one line per replayed turn for screen readers, DESIGN §2
     expect(turnSummary([], game)).toBe('');
   });
 });
+
+// QA ISSUE-004: a logged-out visitor is not the player, so they must never read "You".
+// The server sends `isOwner`; only an explicit `false` makes the viewer a spectator.
+describe('spectators never read "You"', () => {
+  const visitor = { ...game, isOwner: false };
+  const owner = { ...game, isOwner: true };
+  const spectate = (type, data, round) => eventText({ type, round, data }, visitor);
+
+  it('names the human by home country for a spectator', () => {
+    expect(playerName(visitor, 'human')).toBe('South Africa');
+    expect(playerName(visitor, 'npc:KEN')).toBe('Kenya');
+  });
+
+  it('still says "You" to the owner, and when the server sent no isOwner', () => {
+    expect(playerName(owner, 'human')).toBe('You');
+    expect(playerName(game, 'human')).toBe('You');
+  });
+
+  it('writes a spectator\'s attack in the third person', () => {
+    expect(spectate('attackStart', { player: 'human', from: 'ZAF', to: 'KEN' }))
+      .toBe('South Africa attacks Kenya from South Africa.');
+  });
+
+  it('keeps the owner\'s attack in the second person', () => {
+    expect(eventText({ type: 'attackStart', data: { player: 'human', from: 'ZAF', to: 'KEN' } }, owner))
+      .toBe('You attack Kenya from South Africa.');
+  });
+
+  it('writes a spectator\'s conquest in the third person', () => {
+    expect(spectate('conquest', { player: 'human', from: 'ZAF', to: 'KEN', bonus: 3 }))
+      .toBe('South Africa conquers Kenya and earns 3 new soldiers.');
+  });
+
+  it('says "South Africa\'s turn", not "your turn", on the human\'s turn', () => {
+    expect(spectate('turnStart', { player: 'human' }, 2)).toBe("Round 2: South Africa's turn.");
+  });
+
+  it('does not tell a spectator "You conquer the world"', () => {
+    expect(spectate('gameOver', { status: 'won', winner: 'human' })).not.toMatch(/\byou\b/i);
+  });
+
+  it('does not say "You" in the replay summary line', () => {
+    const events = [{ type: 'turnStart', round: 1, data: { player: 'human' } }];
+    expect(turnSummary(events, visitor)).not.toMatch(/\byou\b/i);
+  });
+});

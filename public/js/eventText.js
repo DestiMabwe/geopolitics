@@ -2,7 +2,7 @@
 // line comes from the event itself; the browser only puts words around it. The LLM
 // commentary (S16b) replaces these later. Pure (no DOM), so it runs in the unit tests.
 
-import { playerName } from './players.js';
+import { playerName, isYou } from './players.js';
 
 /**
  * How the latest attack ended, read from the event list, for the DicePanel (DESIGN §2: conquered /
@@ -46,6 +46,14 @@ export function turnSummary(events, game) {
   return [lead, ...notable].filter(Boolean).join(' ');
 }
 
+// The last line of a game. The human player is "you" to the owner and a named country to a visitor.
+function gameOverText(d, game) {
+  const winner = d.winner ? `${playerName(game, d.winner)} wins.` : 'No single winner.';
+  if (isYou(game, 'human')) return d.status === 'won' ? 'You conquer the world. Victory!' : `Defeat. ${winner}`;
+  const human = playerName(game, 'human');
+  return d.status === 'won' ? `${human} conquers the world. Victory!` : `${human} is defeated. ${winner}`;
+}
+
 /**
  * @param {{ type: string, round?: number, data: object }} event  an event doc from the server
  * @param {object} game
@@ -55,13 +63,14 @@ export function eventText(event, game) {
   const d = event.data ?? {};
   const who = playerName(game, d.player);
   const name = (code) => game.countries[code]?.name ?? code;
-  const verb = (you, they) => (d.player === 'human' ? you : they);
+  const you = isYou(game, d.player);
+  const verb = (second, third) => (you ? second : third);
 
   switch (event.type) {
     case 'turnStart': {
       // Stored events keep `round` beside `data` (gameModel.toEventDoc), not inside it.
       const round = event.round ?? d.round;
-      return d.player === 'human' ? `Round ${round}: your turn.` : `Round ${round}: ${who}'s turn.`;
+      return you ? `Round ${round}: your turn.` : `Round ${round}: ${who}'s turn.`;
     }
     case 'attackStart':
       return `${who} ${verb('attack', 'attacks')} ${name(d.to)} from ${name(d.from)}.`;
@@ -84,9 +93,9 @@ export function eventText(event, game) {
     case 'transfer':
       return `${who} ${verb('move', 'moves')} ${d.count} from ${name(d.from)} to ${name(d.to)}.`;
     case 'elimination':
-      return `${playerName(game, d.player)} ${d.player === 'human' ? 'are' : 'is'} eliminated by ${playerName(game, d.by)}.`;
+      return `${who} ${verb('are', 'is')} eliminated by ${playerName(game, d.by)}.`;
     case 'gameOver':
-      return d.status === 'won' ? 'You conquer the world. Victory!' : `Defeat. ${d.winner ? `${playerName(game, d.winner)} wins.` : 'No single winner.'}`;
+      return gameOverText(d, game);
     default:
       return event.type;
   }

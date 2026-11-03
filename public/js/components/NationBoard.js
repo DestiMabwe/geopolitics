@@ -1,5 +1,5 @@
 import { el } from '../dom.js';
-import { playerName, ownerSlot } from '../players.js';
+import { playerName, ownerSlot, isYou } from '../players.js';
 import { profileLabel } from '../profiles.js';
 import { render as profileBadge } from './ProfileBadge.js';
 
@@ -37,7 +37,7 @@ export function render({ game, selection = {}, roleOf = () => null, onPick = () 
         'data-code': code,
         'aria-pressed': String(code === from || code === to),
         disabled: !role && code !== from,
-        'aria-label': `${c.name}, ${owner === 'You' ? 'yours' : `owned by ${owner}`}${profile ? `, ${profile} profile` : ''}, ${c.soldiers} soldiers`,
+        'aria-label': `${c.name}, ${isYou(game, c.owner) ? 'yours' : `owned by ${owner}`}${profile ? `, ${profile} profile` : ''}, ${c.soldiers} soldiers`,
       },
       el('span', { class: `owner-mark owner--${ownerSlot(game, c.owner)}` }),
       el(
