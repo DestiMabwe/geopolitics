@@ -85,8 +85,9 @@
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* ── Replay pacing (read by replay.js via getComputedStyle) ── */
-  --replay-roll:       700ms;
-  --replay-step:       400ms;
+  --replay-roll:       1800ms;
+  --replay-step:       1400ms;
+  --replay-turn:       1500ms;  /* "X's turn" stays up before that country acts */
   --replay-roll-fast:  120ms;
   --replay-step-fast:  120ms;
 

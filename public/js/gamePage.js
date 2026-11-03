@@ -8,6 +8,8 @@ import * as GameOverDialog from './components/GameOverDialog.js';
 import * as ActionBar from './components/ActionBar.js';
 import * as SpectatorBanner from './components/SpectatorBanner.js';
 import * as Toast from './components/Toast.js';
+import * as BattleNotice from './components/BattleNotice.js';
+import * as LogToggle from './components/LogToggle.js';
 import * as LoadError from './components/LoadError.js';
 import { loadErrorMessage } from './loadError.js';
 import { playerName } from './players.js';
@@ -16,6 +18,8 @@ import { gameOverSummary } from './gameOver.js';
 import { wantsAiLine, commentaryPath } from './commentary.js';
 import { createReplay, readPace, viewAfter, mergeEvents } from './replay.js';
 import { loadFast, saveFast } from './fastForward.js';
+import { loadLogOpen, saveLogOpen } from './logView.js';
+import { noticeFor, summaryNotice } from './battleNotice.js';
 import { startPolling } from './poll.js';
 import { el, replaceKeepingFocus } from './dom.js';
 
@@ -67,6 +71,8 @@ export async function openGame(deps) {
     replayed: [], summary: '', barKey: null, dialog: null, gameOverDismissed: false,
     live: true, lastPoll: Date.now(), stopPolling: null,
     replay: null,
+    // The full log starts minimized; battle news arrives as pop-ups (BattleNotice) instead.
+    logOpen: loadLogOpen(), notices: null, feedKey: undefined,
   };
   mine.replay = createReplay({
     pace: readPace((name) => getComputedStyle(document.documentElement).getPropertyValue(name)),
@@ -74,6 +80,7 @@ export async function openGame(deps) {
     onEvent: (event) => showEvent(mine, event),
     onIdle: () => finishReplay(mine),
   });
+  mine.notices = BattleNotice.mount(deps.slot('battle-notice'));
   page = mine;
   draw();
   await load(mine);
@@ -108,6 +115,7 @@ function retryLoad(p) {
 export function closeGame() {
   page?.stopPolling?.();
   page?.replay?.clear();
+  page?.notices?.clear();
   GameOverDialog.dismiss(page?.dialog);
   page = null;
 }
@@ -179,6 +187,7 @@ function showEvent(p, event) {
   p.shownCount += 1;
   p.replayed.push(event);
   draw();
+  pushNotice(p, event);
   // DESIGN §3.3: fast-forward uses the template lines and skips the LLM.
   if (!p.fast) requestCommentary(p, event);
 }
@@ -189,6 +198,11 @@ function finishReplay(p) {
   // DESIGN §2: with fast-forward on, a screen reader hears one line per turn instead of every event.
   p.summary = p.fast ? turnSummary(p.replayed, p.game) : '';
   p.replayed = [];
+  // Fast-forward drops the per-event pop-ups, so the turn gets one summary pop-up instead.
+  if (p.fast && !p.logOpen) {
+    const notice = summaryNotice(`turn-${p.game.version}`, p.summary);
+    if (notice) p.notices.push(notice);
+  }
   showAll(p);
   draw();
   driveNpc(p);
@@ -203,12 +217,29 @@ async function requestCommentary(p, event) {
   try {
     const { text } = await p.api.post(commentaryPath(p.id, event.seq), {});
     event.aiText = text;
+    p.notices.update(event.seq, text); // swaps the LLM line into the pop-up if it is still up
   } catch {
     // The template line stays.
   } finally {
     p.pendingAi.delete(event.seq);
     if (page === p) draw();
   }
+}
+
+/** Pops up the event's notice, but only while the full log is minimized (maximized, the log shows it). */
+function pushNotice(p, event) {
+  if (p.logOpen || page !== p) return;
+  const notice = noticeFor(event, p.shown ?? p.game, { isOwner: Boolean(p.game?.isOwner), fast: p.fast });
+  if (notice) p.notices.push(notice);
+}
+
+function toggleLog() {
+  const p = page;
+  if (!p) return;
+  p.logOpen = !p.logOpen;
+  saveLogOpen(p.logOpen);
+  if (p.logOpen) p.notices.clear(); // the full log already shows everything
+  draw();
 }
 
 function toggleFast() {
@@ -291,6 +322,7 @@ async function act(action, detail) {
     p.game = res.game;
     p.events.push(...res.events);
     showAll(p); // the player's own move is shown at once; only NPC turns are replayed
+    for (const event of res.events) pushNotice(p, event); // your conquests and eliminations still pop up
     p.selection = { from: null, to: null };
     // Transfers can repeat, so that panel stays open; any other move closes it.
     if (action !== 'transfer') p.panel = null;
@@ -423,14 +455,29 @@ function draw() {
     DicePanel.render({ roll: latestRoll(events), game: view, rolling: p.rolling, attacking: attackInProgress(events), outcome: attackOutcome(events) }),
   );
 
+  // Minimized: just the buttons, and pop-ups carry the news. Maximized: the whole log, no pop-ups.
+  slot('battle-notice').hidden = p.logOpen;
   const feed = slot('feed');
-  replaceKeepingFocus(
-    feed,
-    ...(fastForwardVisible(p) ? [FastForwardToggle.render({ on: p.fast, onToggle: toggleFast })] : []),
-    ...(p.summary ? [el('p', { class: 'visually-hidden', role: 'status' }, p.summary)] : []),
-    CommentaryFeed.render({ events, game: view, pendingAi: p.pendingAi, fast: p.fast }),
-  );
-  feed.scrollTop = feed.scrollHeight;
+  // Minimized, the slot holds only the two buttons, so it is rebuilt only when they change. Rebuilding
+  // it on every replayed event would swap the button under the cursor and lose the click.
+  const feedKey = p.logOpen ? null : JSON.stringify([fastForwardVisible(p), p.fast]);
+  if (p.logOpen || feedKey !== p.feedKey || !feed.hasChildNodes()) {
+    p.feedKey = feedKey;
+    replaceKeepingFocus(
+      feed,
+      // Pinned to the top of the panel, so the log scrolling to its newest line never hides them.
+      el(
+        'div',
+        { class: 'feed-controls' },
+        ...(fastForwardVisible(p) ? [FastForwardToggle.render({ on: p.fast, onToggle: toggleFast })] : []),
+        LogToggle.render({ open: p.logOpen, onToggle: toggleLog }),
+      ),
+      // Minimized, the pop-up is the live region; a second announcement here would say it twice.
+      ...(p.logOpen && p.summary ? [el('p', { class: 'visually-hidden', role: 'status' }, p.summary)] : []),
+      ...(p.logOpen ? [CommentaryFeed.render({ events, game: view, pendingAi: p.pendingAi, fast: p.fast })] : []),
+    );
+  }
+  if (p.logOpen) feed.scrollTop = feed.scrollHeight;
 
   showGameOver(p);
 }
