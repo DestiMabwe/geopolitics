@@ -28,6 +28,23 @@ const ATTACK_EVENTS = {
   attackStopped: 'stopped',
 };
 
+// The NPC decisions that carry a `reason` from the engine (GAME_RULES §10, S33a).
+const REASON_EVENTS = new Set(['reinforce', 'attackStart', 'skip', 'attackStopped', 'occupy']);
+
+/**
+ * The engine's one-line reason for an NPC decision, for the feed's muted second line (S33b).
+ * Only the five decision events carry one; a roll or conquest never does, even if a stray
+ * `reason` is present. Gives '' (so nothing is drawn) when there is no usable reason.
+ *
+ * @param {{ type: string, data?: { reason?: unknown } }} event
+ * @returns {string}  the trimmed reason, or ''
+ */
+export function eventReason(event) {
+  const reason = event.data?.reason;
+  if (!REASON_EVENTS.has(event.type) || typeof reason !== 'string') return '';
+  return reason.trim();
+}
+
 // The events worth announcing when a fast-forwarded turn is summarised for a screen reader.
 const NOTABLE = new Set(['conquest', 'elimination', 'gameOver']);
 

@@ -1034,6 +1034,16 @@ button[aria-disabled="true"] {
   font-style: italic;
 }
 
+/* S33b: why an NPC chose this, under its decision line. Muted and never italic or bold. */
+.commentary-feed__reason {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-style: normal;
+  font-weight: var(--weight-regular);
+}
+
 .slot--feed {
   display: flex;
   flex-direction: column;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { eventText, attackOutcome, turnSummary } from '../../public/js/eventText.js';
+import { eventText, eventReason, attackOutcome, turnSummary } from '../../public/js/eventText.js';
 import { playerName, ownerSlot } from '../../public/js/players.js';
 
 const game = {
@@ -176,5 +176,43 @@ describe('spectators never read "You"', () => {
   it('does not say "You" in the replay summary line', () => {
     const events = [{ type: 'turnStart', round: 1, data: { player: 'human' } }];
     expect(turnSummary(events, visitor)).not.toMatch(/\byou\b/i);
+  });
+});
+
+// S33b: the reason the engine attached to an NPC decision (data.reason), shown as a muted second line.
+describe('eventReason', () => {
+  const REASON = 'Opportunist: moves just 1 into Kenya because it scores highest.';
+
+  it.each(['reinforce', 'attackStart', 'skip', 'attackStopped', 'occupy'])('gives the reason of a %s', (type) => {
+    expect(eventReason({ type, data: { reason: REASON } })).toBe(REASON);
+  });
+
+  it('gives nothing when the event has no reason', () => {
+    expect(eventReason({ type: 'skip', data: { player: 'npc:KEN' } })).toBe('');
+  });
+
+  it('gives nothing for a blank reason', () => {
+    expect(eventReason({ type: 'skip', data: { reason: '   ' } })).toBe('');
+    expect(eventReason({ type: 'skip', data: { reason: '' } })).toBe('');
+  });
+
+  it('gives nothing for a reason that is not a string', () => {
+    for (const reason of [null, 42, {}, ['x']]) {
+      expect(eventReason({ type: 'skip', data: { reason } })).toBe('');
+    }
+  });
+
+  it('trims the reason', () => {
+    expect(eventReason({ type: 'skip', data: { reason: '  Holds.  ' } })).toBe('Holds.');
+  });
+
+  it('ignores a reason on an event that is not an NPC decision', () => {
+    for (const type of ['roll', 'conquest', 'turnStart', 'elimination', 'gameOver', 'attackFailed', 'transfer']) {
+      expect(eventReason({ type, data: { reason: REASON } })).toBe('');
+    }
+  });
+
+  it('does not throw when the event has no data', () => {
+    expect(eventReason({ type: 'skip' })).toBe('');
   });
 });

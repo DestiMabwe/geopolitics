@@ -1,5 +1,5 @@
 import { el } from '../dom.js';
-import { eventText } from '../eventText.js';
+import { eventText, eventReason } from '../eventText.js';
 
 // DESIGN §2 CommentaryFeed: newest at the bottom, a "Round n" divider at each new round. A line shows
 // its template text at once; when the LLM line has been saved (`aiText`) it replaces the template
@@ -32,7 +32,16 @@ export function render({ events, game, pendingAi = new Set(), fast = false }) {
     const classes = ['commentary-feed__line', `commentary-feed__line--${event.type}`];
     if (event.aiText) classes.push('commentary-feed__line--ai');
     if (pendingAi.has(event.seq)) classes.push('commentary-feed__line--pending');
-    log.append(el('li', { class: classes.join(' ') }, event.aiText || event.text || eventText(event, game)));
+    // S33b: an NPC decision also says why, as a muted second line (the brief asks for a justification).
+    const reason = eventReason(event);
+    log.append(
+      el(
+        'li',
+        { class: classes.join(' ') },
+        event.aiText || event.text || eventText(event, game),
+        reason && el('span', { class: 'commentary-feed__reason' }, reason),
+      ),
+    );
   }
   if (!events.length) log.append(el('li', { class: 'commentary-feed__line' }, 'The world holds its breath…'));
   return log;
