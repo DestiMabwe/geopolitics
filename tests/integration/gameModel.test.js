@@ -56,7 +56,9 @@ describe('gameModel.createGame (ARCHITECTURE §2)', () => {
     const id = await gameModel.createGame(uniqueUid(), makeState(), [turnStart]);
 
     const event = (await games().doc(id).collection('events').doc('000001').get()).data();
-    expect(event).toMatchObject({ seq: 1, round: 1, type: 'turnStart', text: '', aiText: null });
+    expect(event).toMatchObject({
+      seq: 1, round: 1, type: 'turnStart', text: expect.stringContaining('Country A'), aiText: null,
+    });
     expect(event.data).toMatchObject({ player: 'human' });
     expect(event.data).not.toHaveProperty('type');
     expect(event.createdAt).toBeInstanceOf(Timestamp);
@@ -204,7 +206,8 @@ describe('gameModel.runAction (ARCHITECTURE §4.1)', () => {
       const snap = await games().doc(id).collection('events').orderBy('seq').get();
       expect(snap.docs.map((d) => d.id)).toEqual(['000001', '000002', '000003']);
       expect(snap.docs[1].data()).toMatchObject({
-        seq: 2, round: 1, type: 'turnStart', data: { player: 'npc:BBB' }, text: '', aiText: null,
+        seq: 2, round: 1, type: 'turnStart', data: { player: 'npc:BBB' },
+        text: expect.stringContaining('Country B'), aiText: null,
       });
       expect(snap.docs[1].data().data).not.toHaveProperty('type');
       expect(snap.docs[2].data().createdAt).toBeInstanceOf(Timestamp);

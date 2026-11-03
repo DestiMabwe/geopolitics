@@ -3,6 +3,8 @@ import * as AuthForm from './components/AuthForm.js';
 import * as Toast from './components/Toast.js';
 import * as GameList from './components/GameList.js';
 import * as StartScreen from './components/StartScreen.js';
+import * as LoadError from './components/LoadError.js';
+import { loadErrorMessage } from './loadError.js';
 import { createApi } from './api.js';
 import * as auth from './auth.js';
 import { validateCredentials, authErrorMessage } from './authMessages.js';
@@ -154,7 +156,10 @@ async function renderHome(focus) {
     if (focus) slot(focus).scrollIntoView({ block: 'start' });
     if (focus === 'start') form.querySelector('input').focus();
   } catch (err) {
-    if (mine === renderCount) Toast.show(err.message, 'error');
+    if (mine !== renderCount) return;
+    // Replace "Loading…" with the reason and a way out (QA 2026-11-03 ISSUE-A).
+    games.replaceChildren(LoadError.render({ message: loadErrorMessage(err), onRetry: () => renderHome(focus) }));
+    if (!catalogue) startSection.replaceChildren();
   }
 }
 

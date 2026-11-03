@@ -8,3 +8,5 @@ coverage/
 .firebase/
 .vercel/
 firebase-export-*/
+
+*adminsdk*.json

@@ -1,5 +1,6 @@
 import { WrongPhaseError } from './errors.js';
 import { applyPlacements, checkPlacements } from './placements.js';
+import { currentPlayer } from './players.js';
 
 /**
  * The current player places all their pending reinforcements. Does not mutate `state`.
@@ -23,7 +24,7 @@ export function placeReinforcements(state, placements) {
   if (state.phase !== 'reinforce') {
     throw new WrongPhaseError(`cannot place reinforcements in phase ${state.phase}`);
   }
-  const player = state.turnOrder[state.currentTurn];
+  const player = currentPlayer(state);
   const amount = state.pendingReinforcements;
   checkPlacements(state, player, placements, amount);
   applyPlacements(state, placements);

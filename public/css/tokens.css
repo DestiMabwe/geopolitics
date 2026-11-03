@@ -27,6 +27,7 @@
   --owner-7: #6fbf4a;
   --owner-8: #8d99ae;
   --owner-9: #b07a52;
+  --owner: var(--color-text-muted);  /* the owner colour of the node being drawn; WorldMap sets it per node */
 
   /* ── NPC profile badges ──────────────────────── */
   --profile-warlord:     #d64545;

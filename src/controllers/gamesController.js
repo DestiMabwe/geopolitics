@@ -3,6 +3,11 @@ import * as gameModel from '../models/gameModel.js';
 import { createGame as newGameState } from '../game/setup.js';
 import * as attack from '../game/attack.js';
 import * as turn from '../game/turn.js';
+import * as reinforcements from '../game/reinforce.js';
+import * as transfers from '../game/transfer.js';
+import * as npc from '../game/npc.js';
+import { LLM_EVENTS } from '../game/commentary.js';
+import { generateCommentary } from '../services/commentaryService.js';
 import { HttpError } from '../middleware/errorHandler.js';
 import countryData from '../data/countries.json' with { type: 'json' };
 
@@ -32,10 +37,7 @@ function toIso(value) {
  * Responds `201 { game, events }`.
  */
 export async function createGame(req, res) {
-  const { countryCode } = req.body ?? {};
-  if (typeof countryCode !== 'string') {
-    throw new HttpError(400, 'bad_request', 'countryCode must be a string');
-  }
+  const { countryCode } = req.body;
 
   // An unknown country makes the engine throw IllegalMoveError, which errorHandler turns into 422.
   const { state, events } = newGameState({
@@ -91,13 +93,7 @@ export async function listEvents(req, res) {
  *    (with the caller's uid) and `events` as they are.
  */
 export async function startAttack(req, res) {
-  const { version, from, to, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  if (!Number.isInteger(version) || version <= 0 || typeof from !== 'string' || typeof to !== 'string') {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version, from, to } = req.body;
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     attack.startAttack(state, from, to)
@@ -119,13 +115,7 @@ export async function startAttack(req, res) {
  * 4. Respond the same way as startAttack.
  */
 export async function rollAttack(req, res) {
-  const { version, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  if (!Number.isInteger(version) || version <= 0) {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version } = req.body;
 
   const rollDie = () => randomInt(1, 7);
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
@@ -144,13 +134,7 @@ export async function rollAttack(req, res) {
  * 3. Respond the same way as startAttack.
  */
 export async function stopAttack(req, res) {
-  const { version, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  if (!Number.isInteger(version) || version <= 0) {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version } = req.body;
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     attack.stopAttack(state)
@@ -165,17 +149,117 @@ export async function stopAttack(req, res) {
  * Responds `200 { game, events }`.
  */
 export async function occupy(req, res) {
-  const { version, count, placements, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  const isMap = placements !== null && typeof placements === 'object' && !Array.isArray(placements);
-  if (!Number.isInteger(version) || version <= 0 || typeof count !== 'number' || !isMap) {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version, count, placements } = req.body;
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     attack.occupy(state, count, placements)
+  );
+  res.json({ game: toPublicGame(game, req.uid), events });
+}
+
+/**
+ * POST /games/:id/npc-turn (token + owner). Body `{ version }`. Plays the current NPC's whole turn
+ * and saves its events with their template lines. Never calls the LLM (CLAUDE.md hard rules).
+ * ARCHITECTURE §4.2, GAME_RULES §8, §9.2. 400 · 403 · 409 stale / game over / human's turn.
+ * Responds `200 { game, events }`.
+ *
+ * Steps:
+ * 1. Same body check as rollAttack (only `version`).
+ * 2. Make `rollDie` the same way as rollAttack. The server rolls for the NPC too.
+ * 3. Call runAction with `{ version, turn: 'npc' }`, which gives the 409 on the human's turn. The
+ *    function returns the engine's `npc.playNpcTurn(state, rollDie)`.
+ * 4. Respond the same way as startAttack.
+ */
+export async function npcTurn(req, res) {
+  const { version } = req.body;
+
+  const rollDie = () => randomInt(1, 7);
+  const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'npc' }, (state) =>
+    npc.playNpcTurn(state, rollDie)
+  );
+  res.json({ game: toPublicGame(game, req.uid), events });
+}
+
+/**
+ * POST /games/:id/events/:eventId/commentary (token + owner). No body. ARCHITECTURE §3, §4.3.
+ * Not a game action, so it takes no `version` and works on a finished game.
+ * 400 any body key · 403 not owner · 404 no such game or event. Responds `200 { text }`.
+ *
+ * Steps:
+ * 1. (Done before this runs: `validate({})` answers 400 'bad_request' if the body has any key at all.)
+ * 2. 404 'not_found' unless `eventId` is exactly 6 digits (`/^\d{6}$/`). Firestore throws on ids
+ *    like `__bad__`, which would otherwise be a 500.
+ * 3. Call gameModel.claimCommentary with the game id, event id and caller's uid.
+ * 4. If `event.aiText` is not null, respond with it. This is what makes the endpoint idempotent.
+ * 5. If `event.type` is not in LLM_EVENTS, respond with `event.text`. Save nothing.
+ * 6. Choose the line, with no transaction open (CLAUDE.md hard rules). If `claimed`, it is
+ *    `await generateCommentary({ type: event.type, ...event.data }, state)`. If not (the cap), it is
+ *    `event.text`. Leave `event.round` out: on these four types it is a stored 0, not a real field,
+ *    and it would reach the prompt.
+ * 7. Save it with gameModel.saveCommentary and respond with what that returns.
+ */
+export async function commentary(req, res) {
+  // Firestore throws on ids like `__bad__`, which would otherwise be a 500.
+  if (!/^\d{6}$/.test(req.params.eventId)) {
+    throw new HttpError(404, 'not_found', `No event with id ${req.params.eventId}`);
+  }
+
+  const { id, eventId } = req.params;
+  const { event, state, claimed } = await gameModel.claimCommentary(id, eventId, req.uid);
+
+  if (event.aiText !== null) {
+    return res.json({ text: event.aiText });
+  }
+  if (!LLM_EVENTS.has(event.type)) {
+    return res.json({ text: event.text });
+  }
+
+  // No transaction is open here (CLAUDE.md). `round` is left out: on these types it is a stored 0.
+  const line = claimed ? await generateCommentary({ type: event.type, ...event.data }, state) : event.text;
+  res.json({ text: await gameModel.saveCommentary(id, eventId, line) });
+}
+
+/**
+ * POST /games/:id/reinforce (token + owner). Body `{ version, placements: { CODE: n } }`.
+ * Places all pending reinforcements. GAME_RULES §7.3, ARCHITECTURE §3.
+ * 400 bad body · 403 · 409 stale / not in reinforce / not your turn · 422 bad sum or not owned.
+ * Responds `200 { game, events }`.
+ *
+ * Steps:
+ * 1. Same body checks as occupy, without `count`: the only allowed keys are `version` and
+ *    `placements`, and `placements` must be a map (not null, not an array).
+ * 2. Call runAction with `{ version, turn: 'human' }`; the function returns the engine's
+ *    `reinforcements.placeReinforcements(state, placements)`.
+ * 3. Respond the same way as startAttack.
+ */
+export async function reinforce(req, res) {
+  const { version, placements } = req.body;
+
+  const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
+    reinforcements.placeReinforcements(state, placements)
+  );
+  res.json({ game: toPublicGame(game, req.uid), events });
+}
+
+/**
+ * POST /games/:id/transfer (token + owner). Body `{ version, from, to, count }`.
+ * Moves soldiers between two of the player's countries. GAME_RULES §6, ARCHITECTURE §3.
+ * 400 bad body · 403 · 409 stale / not in manoeuvre / not your turn · 422 §6.1.
+ * Responds `200 { game, events }`.
+ *
+ * Steps:
+ * 1. 400 'bad_request' for any key other than `version`, `from`, `to`, `count`.
+ * 2. 400 'bad_request' unless `version` is a positive integer, `from` and `to` are strings, and
+ *    `count` is a number. The strings matter: the engine calls `toUpperCase` on them, so anything
+ *    else would crash into a 500. Leave 0 and 1.5 to the engine, which answers 422 (§6.1).
+ * 3. Call runAction; the function returns the engine's `transfers.transfer(state, from, to, count)`.
+ * 4. Respond the same way as startAttack.
+ */
+export async function transfer(req, res) {
+  const { version, from, to, count } = req.body;
+
+  const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
+    transfers.transfer(state, from, to, count)
   );
   res.json({ game: toPublicGame(game, req.uid), events });
 }
@@ -185,13 +269,7 @@ export async function occupy(req, res) {
  * GAME_RULES §4.2. 400 · 403 · 409 stale / not in manoeuvre. Responds `200 { game, events }`.
  */
 export async function skip(req, res) {
-  const { version, ...rest } = req.body ?? {};
-  if (Object.keys(rest).length > 0) {
-    throw new HttpError(400, 'bad_request', 'unexpected keys in body');
-  }
-  if (!Number.isInteger(version) || version <= 0) {
-    throw new HttpError(400, 'bad_request', 'invalid body');
-  }
+  const { version } = req.body;
 
   const { game, events } = await gameModel.runAction(req.params.id, req.uid, { version, turn: 'human' }, (state) =>
     turn.skip(state)

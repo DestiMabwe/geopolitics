@@ -1,5 +1,7 @@
 import { el } from '../dom.js';
-import { playerName, ownerSlot } from '../players.js';
+import { playerName, ownerSlot, isYou } from '../players.js';
+import { profileLabel } from '../profiles.js';
+import { render as profileBadge } from './ProfileBadge.js';
 
 // DESIGN §2 NationBoard + NationCard. The 10 countries, each listing its neighbours by code, so a
 // target can be chosen without a map. Display only: onPick reports a click, the page decides.
@@ -21,6 +23,7 @@ export function render({ game, selection = {}, roleOf = () => null, onPick = () 
   for (const [code, c] of Object.entries(game.countries)) {
     const role = roleOf(code);
     const owner = playerName(game, c.owner);
+    const profile = profileLabel(game.players[c.owner]?.profile);
     const classes = ['nation-card'];
     if (code === from) classes.push('nation-card--source');
     if (code === to) classes.push(game.attack ? 'nation-card--under-attack' : 'nation-card--target');
@@ -34,7 +37,7 @@ export function render({ game, selection = {}, roleOf = () => null, onPick = () 
         'data-code': code,
         'aria-pressed': String(code === from || code === to),
         disabled: !role && code !== from,
-        'aria-label': `${c.name}, ${owner === 'You' ? 'yours' : `owned by ${owner}`}, ${c.soldiers} soldiers`,
+        'aria-label': `${c.name}, ${isYou(game, c.owner) ? 'yours' : `owned by ${owner}`}${profile ? `, ${profile} profile` : ''}, ${c.soldiers} soldiers`,
       },
       el('span', { class: `owner-mark owner--${ownerSlot(game, c.owner)}` }),
       el(
@@ -43,7 +46,12 @@ export function render({ game, selection = {}, roleOf = () => null, onPick = () 
         el('span', { class: 'nation-card__name' }, c.name),
         el('span', { class: 'nation-card__code' }, code),
       ),
-      el('span', { class: 'nation-card__owner' }, owner),
+      el(
+        'span',
+        { class: 'nation-card__owner-row' },
+        el('span', { class: 'nation-card__owner' }, owner),
+        profileBadge({ profile: game.players[c.owner]?.profile }),
+      ),
       el(
         'span',
         { class: 'nation-card__stats' },

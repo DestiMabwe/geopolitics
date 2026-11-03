@@ -5,10 +5,7 @@ import { endTurn } from './turn.js';
 import { conquestBonus } from './soldiers.js';
 import { checkElimination, checkGameOver } from './victory.js';
 import { checkPlacements, applyPlacements } from './placements.js';
-
-// The attacker is always the player whose turn it is. Whether the HTTP caller owns
-// the game is checked by gameModel (S18), not here.
-const currentPlayer = (state) => state.turnOrder[state.currentTurn];
+import { currentPlayer } from './players.js';
 
 // GAME_RULES §4.5: a failed or stopped attack ends the turn. `state` is already a copy.
 function endAttack(state, events) {

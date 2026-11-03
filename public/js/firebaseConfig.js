@@ -9,7 +9,13 @@ const local = {
   authEmulatorUrl: 'http://127.0.0.1:9099',
 };
 
-// The real project's web config arrives with the first deploy (S31a).
-const production = null;
+// The real project's web config. Public by design. Auth only, so no analytics or storage fields.
+const production = {
+  config: {
+    apiKey: 'AIzaSyAGPhTQY3aSd28TXWG19c1WEKLuQELLZCY',
+    authDomain: 'geopolitics-game-d17a4.firebaseapp.com',
+    projectId: 'geopolitics-game-d17a4',
+  },
+};
 
 export const firebaseSettings = isLocal ? local : production;

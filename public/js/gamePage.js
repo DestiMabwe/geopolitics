@@ -1,19 +1,36 @@
 import * as NationBoard from './components/NationBoard.js';
 import * as TurnOrderBar from './components/TurnOrderBar.js';
 import * as DicePanel from './components/DicePanel.js';
-import * as EventLog from './components/EventLog.js';
+import * as CommentaryFeed from './components/CommentaryFeed.js';
+import * as FastForwardToggle from './components/FastForwardToggle.js';
+import * as WorldMap from './components/WorldMap.js';
+import * as GameOverDialog from './components/GameOverDialog.js';
 import * as ActionBar from './components/ActionBar.js';
 import * as SpectatorBanner from './components/SpectatorBanner.js';
 import * as Toast from './components/Toast.js';
+import * as LoadError from './components/LoadError.js';
+import { loadErrorMessage } from './loadError.js';
 import { playerName } from './players.js';
+import { attackOutcome, attackInProgress, latestRoll, turnSummary } from './eventText.js';
+import { gameOverSummary } from './gameOver.js';
+import { wantsAiLine, commentaryPath } from './commentary.js';
+import { createReplay, readPace, viewAfter, mergeEvents } from './replay.js';
+import { loadFast, saveFast } from './fastForward.js';
 import { startPolling } from './poll.js';
-import { el } from './dom.js';
+import { el, replaceKeepingFocus } from './dom.js';
 
-// The game page, /game/:id (DESIGN §3.3, S25b). Anyone with the link sees the board, the dice and
-// the log; only the owner gets the ActionBar. Visitors poll every 2 s (ARCHITECTURE §3). Every number
-// on screen comes from the server; the client only sends intent (CLAUDE.md hard rules).
+// The game page, /game/:id (DESIGN §3.3, S25b, S28). Anyone with the link sees the board, the dice and
+// the feed; only the owner gets the ActionBar. Every number on screen comes from the server; the client
+// only sends intent (CLAUDE.md hard rules).
+//
+// Two copies of the game are kept. `game` is the server's latest. `shown` is what the screen has
+// reached: NPC turns and visitors' polled batches come back in one piece, and are replayed one event
+// at a time (replay.js) while `shown` catches up. When the replay ends `shown` becomes `game`.
 
 const STALE_MS = 10_000;
+// A visitor's poll re-reads this many of the newest events, to pick up commentary saved after they
+// first saw the event (ARCHITECTURE §4.3, §4.4).
+const POLL_OVERLAP = 12;
 
 // tokens.css --poll-interval (DESIGN §1), so the design owns the pace.
 function pollMs() {
@@ -40,32 +57,58 @@ export async function openGame(deps) {
     return;
   }
   closeGame();
+  const fast = loadFast();
   const mine = {
     ...deps, uid,
-    game: null, events: [], error: null,
+    game: null, shown: null, events: [], shownCount: 0, error: null,
     selection: { from: null, to: null },
-    pending: false, rolling: false,
+    pending: false, rolling: false, panel: null,
+    fast, replaying: false, npcPaused: false, pendingAi: new Set(),
+    replayed: [], summary: '', barKey: null, dialog: null, gameOverDismissed: false,
     live: true, lastPoll: Date.now(), stopPolling: null,
+    replay: null,
   };
+  mine.replay = createReplay({
+    pace: readPace((name) => getComputedStyle(document.documentElement).getPropertyValue(name)),
+    fast,
+    onEvent: (event) => showEvent(mine, event),
+    onIdle: () => finishReplay(mine),
+  });
   page = mine;
   draw();
+  await load(mine);
+}
 
+/** First load, and every Try again after a failure. */
+async function load(p) {
+  p.retryable = false;
   try {
-    await loadAll(mine);
+    await loadAll(p);
   } catch (err) {
-    if (page !== mine) return;
-    mine.error = err.status === 404 ? 'There is no game at this link.' : 'The game could not be loaded. Try refreshing.';
+    if (page !== p) return;
+    p.error = err.status === 404 ? 'There is no game at this link.' : loadErrorMessage(err);
+    p.retryable = err.status !== 404; // a missing game stays missing
   }
-  if (page !== mine) return; // left the page while loading
+  if (page !== p) return; // left the page while loading
   draw();
-  if (mine.game && !mine.game.isOwner) {
-    mine.stopPolling = startPolling(() => poll(mine), pollMs());
+  if (p.game && !p.game.isOwner) {
+    p.stopPolling = startPolling(() => poll(p), pollMs());
+  } else {
+    driveNpc(p);
   }
 }
 
-/** Leaves the game page: stops polling and the keyboard shortcuts. */
+function retryLoad(p) {
+  p.error = null;
+  draw(); // back to "Loading the game…" while the new attempt runs
+  load(p);
+}
+
+/** Leaves the game page: stops polling, the replay and the keyboard shortcuts. */
 export function closeGame() {
   page?.stopPolling?.();
+  page?.replay?.clear();
+  GameOverDialog.dismiss(page?.dialog);
   page = null;
 }
 
@@ -75,6 +118,13 @@ async function loadAll(p) {
   const { game } = await p.api.get(`/games/${p.id}`);
   p.game = game;
   p.events = await fetchEventsAfter(p, 0);
+  showAll(p);
+}
+
+// Everything is on screen: nothing left to replay.
+function showAll(p) {
+  p.shown = p.game;
+  p.shownCount = p.events.length;
 }
 
 // GET /events returns at most 200 at a time (ARCHITECTURE §3), so keep asking until a short page.
@@ -90,13 +140,17 @@ async function fetchEventsAfter(p, after) {
 
 async function poll(p) {
   try {
-    const after = p.events.at(-1)?.seq ?? 0;
-    const fresh = await fetchEventsAfter(p, after);
+    const after = Math.max(0, (p.events.at(-1)?.seq ?? 0) - POLL_OVERLAP);
+    const fetched = await fetchEventsAfter(p, after);
     if (page !== p) return;
+    const { events, fresh } = mergeEvents(p.events, fetched);
     if (fresh.length) {
       p.game = (await p.api.get(`/games/${p.id}`)).game;
-      p.events.push(...fresh);
+      if (page !== p) return;
     }
+    // Same order and length for old events, so what the replay has shown so far still lines up.
+    p.events = events;
+    if (fresh.length) replayEvents(p, fresh);
     p.live = true;
     p.lastPoll = Date.now();
     draw();
@@ -109,6 +163,93 @@ async function poll(p) {
   }
 }
 
+// ── Replaying events ─────────────────────────────────────────────────
+
+// `p.events` already holds `fresh` (they are the newest); the screen reaches them one at a time.
+function replayEvents(p, fresh) {
+  if (!fresh.length) return finishReplay(p);
+  p.replaying = true;
+  p.summary = '';
+  p.replay.push(fresh);
+}
+
+function showEvent(p, event) {
+  if (page !== p) return;
+  p.shown = viewAfter(p.shown, event);
+  p.shownCount += 1;
+  p.replayed.push(event);
+  draw();
+  // DESIGN §3.3: fast-forward uses the template lines and skips the LLM.
+  if (!p.fast) requestCommentary(p, event);
+}
+
+function finishReplay(p) {
+  if (page !== p) return;
+  p.replaying = false;
+  // DESIGN §2: with fast-forward on, a screen reader hears one line per turn instead of every event.
+  p.summary = p.fast ? turnSummary(p.replayed, p.game) : '';
+  p.replayed = [];
+  showAll(p);
+  draw();
+  driveNpc(p);
+}
+
+// ARCHITECTURE §4.3: the template line is already on screen; the LLM line swaps in when it arrives,
+// and a failure leaves the template. Never blocks play. Only the owner can ask (the endpoint needs a login).
+async function requestCommentary(p, event) {
+  if (!p.game?.isOwner || !wantsAiLine(event) || p.pendingAi.has(event.seq)) return;
+  p.pendingAi.add(event.seq);
+  draw();
+  try {
+    const { text } = await p.api.post(commentaryPath(p.id, event.seq), {});
+    event.aiText = text;
+  } catch {
+    // The template line stays.
+  } finally {
+    p.pendingAi.delete(event.seq);
+    if (page === p) draw();
+  }
+}
+
+function toggleFast() {
+  const p = page;
+  if (!p) return;
+  p.fast = !p.fast;
+  saveFast(p.fast);
+  p.replay.setFast(p.fast);
+  draw();
+}
+
+// ── NPC turns ────────────────────────────────────────────────────────
+
+const isNpcTurn = (g) => g.status === 'active' && g.turnOrder[g.currentTurn] !== 'human';
+
+// ARCHITECTURE §4.2: one request plays one NPC's whole turn; its events are then replayed. When the
+// replay ends, this runs again, so the NPCs play in turn until it is the human's turn or the game ends.
+async function driveNpc(p) {
+  if (page !== p || !p.game?.isOwner || p.pending || p.replaying || p.npcPaused || !isNpcTurn(p.game)) return;
+
+  p.pending = true;
+  draw();
+  try {
+    const res = await p.api.post(`/games/${p.id}/npc-turn`, { version: p.game.version });
+    if (page !== p) return;
+    p.game = res.game;
+    p.events.push(...res.events);
+    replayEvents(p, res.events);
+  } catch (err) {
+    if (page !== p) return;
+    Toast.show(err.message, 'error');
+    p.npcPaused = true;
+    if (err.status === 409) await loadAll(p).catch(() => {});
+  } finally {
+    if (page === p) {
+      p.pending = false;
+      draw();
+    }
+  }
+}
+
 // ── Owner actions ────────────────────────────────────────────────────
 
 const ACTIONS = {
@@ -116,13 +257,29 @@ const ACTIONS = {
   skip: () => ['/skip', {}],
   roll: () => ['/attack/roll', {}],
   stop: () => ['/attack/stop', {}],
-  occupy: (p, { count, placeOn }) => ['/attack/occupy', { count, placements: { [placeOn]: p.game.attack.bonus } }],
+  occupy: (p, { count, placements }) => ['/attack/occupy', { count, placements }],
+  reinforce: (p, { placements }) => ['/reinforce', { placements }],
+  transfer: (p, { from, to, count }) => ['/transfer', { from, to, count }],
 };
 
 async function act(action, detail) {
   const p = page;
   if (action === 'copy-link') return copyLink(p);
-  if (!p || p.pending || !ACTIONS[action]) return;
+  if (action === 'toggle-transfer') {
+    if (p && !p.pending && !p.replaying) {
+      p.panel = p.panel === 'transfer' ? null : 'transfer';
+      draw();
+    }
+    return;
+  }
+  if (action === 'npc-continue') {
+    if (p) {
+      p.npcPaused = false;
+      driveNpc(p);
+    }
+    return;
+  }
+  if (!p || p.pending || p.replaying || !ACTIONS[action]) return;
 
   const [path, body] = ACTIONS[action](p, detail);
   p.pending = true;
@@ -133,7 +290,11 @@ async function act(action, detail) {
     if (page !== p) return;
     p.game = res.game;
     p.events.push(...res.events);
+    showAll(p); // the player's own move is shown at once; only NPC turns are replayed
     p.selection = { from: null, to: null };
+    // Transfers can repeat, so that panel stays open; any other move closes it.
+    if (action !== 'transfer') p.panel = null;
+    for (const event of res.events) requestCommentary(p, event);
   } catch (err) {
     if (page !== p) return;
     Toast.show(err.message, 'error');
@@ -144,6 +305,7 @@ async function act(action, detail) {
       p.pending = false;
       p.rolling = false;
       draw();
+      driveNpc(p);
     }
   }
 }
@@ -157,11 +319,12 @@ async function copyLink(p) {
   }
 }
 
-// DESIGN §2 accessibility: R = roll, S = stop, while an attack is in progress.
+// DESIGN §2 accessibility: R = roll, S = stop, while an attack is in progress; F = fast-forward.
 document.addEventListener('keydown', (event) => {
-  if (!page?.game?.isOwner || page.game.phase !== 'attacking' || page.game.turnOrder[page.game.currentTurn] !== 'human') return;
-  if (event.target.closest?.('input, select, textarea') || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (!page?.game || event.target.closest?.('input, select, textarea') || event.ctrlKey || event.metaKey || event.altKey) return;
   const key = event.key.toLowerCase();
+  if (key === 'f' && fastForwardVisible(page)) toggleFast();
+  if (!page.game.isOwner || page.replaying || page.game.phase !== 'attacking' || page.game.turnOrder[page.game.currentTurn] !== 'human') return;
   if (key === 'r') act('roll');
   if (key === 's') act('stop');
 });
@@ -170,7 +333,7 @@ document.addEventListener('keydown', (event) => {
 
 function canPick(p) {
   const g = p.game;
-  return g.isOwner && !p.pending && g.status === 'active' && g.phase === 'manoeuvre' && g.turnOrder[g.currentTurn] === 'human';
+  return g.isOwner && !p.pending && !p.replaying && g.status === 'active' && g.phase === 'manoeuvre' && g.turnOrder[g.currentTurn] === 'human';
 }
 
 // Only a hint for the board; the server re-checks every rule in GAME_RULES §5.1.
@@ -194,6 +357,11 @@ function pick(code) {
 
 // ── Drawing ──────────────────────────────────────────────────────────
 
+// DESIGN §2: the switch shows while NPC turns are playing or being replayed, to the owner and to visitors.
+function fastForwardVisible(p) {
+  return p.replaying || (p.game.isOwner && isNpcTurn(p.game));
+}
+
 function draw() {
   const p = page;
   if (!p) return;
@@ -206,35 +374,76 @@ function draw() {
     banner.hidden = true;
     actionBar.hidden = true;
     slot('turn-order').replaceChildren();
-    slot('board').replaceChildren(el('p', { class: 'game-message', 'aria-busy': String(!p.error) }, p.error ?? 'Loading the game…'));
+    slot('map').replaceChildren();
+    slot('board').replaceChildren(
+      p.error
+        ? LoadError.render({ message: p.error, onRetry: p.retryable ? () => retryLoad(p) : null })
+        : el('p', { class: 'game-message', 'aria-busy': 'true' }, 'Loading the game…'),
+    );
     slot('dice').replaceChildren();
     slot('feed').replaceChildren();
     return;
   }
 
+  // The screen's view of the game: it trails `game` while a replay is playing.
+  const view = p.shown ?? game;
+  const events = p.events.slice(0, p.shownCount);
+
   p.renderHeader(p.user, {
-    round: game.round,
-    status: game.status,
-    currentPlayer: game.status === 'active' ? playerName(game, game.turnOrder[game.currentTurn]) : null,
+    round: view.round,
+    status: view.status,
+    isOwner: game.isOwner,
+    currentPlayer: view.status === 'active' ? playerName(view, view.turnOrder[view.currentTurn]) : null,
   });
 
   banner.hidden = game.isOwner;
-  if (!game.isOwner) banner.replaceChildren(SpectatorBanner.render({ live: p.live, loggedIn: Boolean(p.user) }));
+  if (!game.isOwner) banner.replaceChildren(SpectatorBanner.render({ live: p.live, loggedIn: Boolean(p.user), status: view.status }));
 
-  slot('turn-order').replaceChildren(TurnOrderBar.render({ game }));
-  slot('board').replaceChildren(
-    NationBoard.render({ game, selection: p.selection, roleOf: (code) => roleOf(p, code), onPick: pick }),
-  );
+  slot('turn-order').replaceChildren(TurnOrderBar.render({ game: view }));
+  const boardProps = { game: view, selection: p.selection, roleOf: (code) => roleOf(p, code), onPick: pick };
+  slot('map').replaceChildren(WorldMap.render(boardProps));
+  replaceKeepingFocus(slot('board'), NationBoard.render(boardProps));
 
   actionBar.hidden = !game.isOwner;
   if (game.isOwner) {
-    actionBar.replaceChildren(ActionBar.render({ game, selection: p.selection, pending: p.pending, onAction: act }));
+    // Rebuilt only when something it shows has changed. Commentary arriving mid-occupy would otherwise
+    // wipe the bonus the player has half placed.
+    const barKey = JSON.stringify([game.version, game.status, game.phase, game.currentTurn, p.selection, p.pending, p.panel, p.replaying, p.npcPaused]);
+    if (barKey !== p.barKey || !actionBar.hasChildNodes()) {
+      p.barKey = barKey;
+      replaceKeepingFocus(
+        actionBar,
+        ActionBar.render({ game, selection: p.selection, pending: p.pending, panel: p.panel, replaying: p.replaying, npcPaused: p.npcPaused, onAction: act }),
+      );
+    }
   }
 
-  const lastRoll = p.events.findLast((e) => e.type === 'roll') ?? null;
-  slot('dice').replaceChildren(DicePanel.render({ roll: lastRoll, game, rolling: p.rolling }));
+  // Only the current attack's dice: the previous fight's must not linger when a new attack starts (QA ISSUE-G).
+  slot('dice').replaceChildren(
+    DicePanel.render({ roll: latestRoll(events), game: view, rolling: p.rolling, attacking: attackInProgress(events), outcome: attackOutcome(events) }),
+  );
 
   const feed = slot('feed');
-  feed.replaceChildren(EventLog.render({ events: p.events, game }));
+  replaceKeepingFocus(
+    feed,
+    ...(fastForwardVisible(p) ? [FastForwardToggle.render({ on: p.fast, onToggle: toggleFast })] : []),
+    ...(p.summary ? [el('p', { class: 'visually-hidden', role: 'status' }, p.summary)] : []),
+    CommentaryFeed.render({ events, game: view, pendingAi: p.pendingAi, fast: p.fast }),
+  );
   feed.scrollTop = feed.scrollHeight;
+
+  showGameOver(p);
+}
+
+// DESIGN §3.3 game-over: the dialog opens over the board once the replay has played out, for the owner.
+function showGameOver(p) {
+  const { game } = p;
+  if (!game.isOwner || p.replaying || game.status === 'active' || p.dialog || p.gameOverDismissed) return;
+  p.dialog = GameOverDialog.show({
+    summary: gameOverSummary(game),
+    onClose: () => {
+      p.dialog = null;
+      p.gameOverDismissed = true;
+    },
+  });
 }

@@ -13,24 +13,7 @@ export function diceCount(attacking, defending) {
     if (attacking < 2) {
         throw new IllegalMoveError('Attacker must have at least 2 soldiers to roll dice');
     }
-    if (attacking - 1 < defending) {
-        return attacking - 1;
-    }
-    if (attacking - 1 >= defending) {
-        return defending;
-    }
-    if (attacking - 1 === defending) {
-        return defending;
-    }
-    if (attacking >= 2 && defending >= 1) {
-        return Math.min(attacking - 1, defending);
-    }
-    if (attacking < 3 && defending < 1) {
-        return 0;
-    }
-    if (attacking < 3 && defending >= 1) {
-        return 1;
-    }
+    return Math.min(attacking - 1, defending);
 }
 
 /**

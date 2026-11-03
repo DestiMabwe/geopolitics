@@ -1,5 +1,6 @@
 import { el } from '../dom.js';
 import { playerName, ownerSlot } from '../players.js';
+import { render as profileBadge } from './ProfileBadge.js';
 
 // DESIGN §2 TurnOrderBar: one chip per player in turn order, the current one highlighted.
 
@@ -22,7 +23,7 @@ export function render({ game }) {
         { class: classes.join(' '), 'aria-current': current ? 'step' : false },
         el('span', { class: `owner-mark owner--${ownerSlot(game, id)}` }),
         playerName(game, id),
-        p.profile && el('span', { class: `turn-chip__profile turn-chip__profile--${p.profile}` }, p.profile),
+        profileBadge({ profile: p.profile }),
       );
     }),
   );

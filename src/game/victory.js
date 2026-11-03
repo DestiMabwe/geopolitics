@@ -40,8 +40,8 @@ export function checkGameOver(state) {
   return { state, events: [{ type: 'gameOver', status: state.status, winner: state.winner }] };
 }
 
-// §9.2: the player owning the most countries, or null on a tie.
-function leader(owners) {
+// §8.1, §9.2: the player owning the most countries, or null on a tie.
+export function leader(owners) {
   const counts = {};
   for (const o of owners) counts[o] = (counts[o] ?? 0) + 1;
   const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);

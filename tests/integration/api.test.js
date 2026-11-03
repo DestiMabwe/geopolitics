@@ -71,12 +71,13 @@ describe('POST /api/games', () => {
     expect(stored.updatedAt).toBeDefined();
 
     const event = (await ref.collection('events').doc('000001').get()).data();
+    const firstHome = stored.players[stored.turnOrder[0]].homeCode;
     expect(event).toMatchObject({
       seq: 1,
       round: 1,
       type: 'turnStart',
       data: { player: stored.turnOrder[0] },
-      text: '',
+      text: expect.stringContaining(stored.countries[firstHome].name),
       aiText: null,
     });
     expect(event.createdAt).toBeDefined();

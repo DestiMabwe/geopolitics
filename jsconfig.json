@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
+    "checkJs": false
+  },
+  "include": ["api", "src", "public/js", "tests"]
+}

@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { scripted, makeState } from '../helpers.js';
+import { scripted, makeState, mockLlm } from '../helpers.js';
+
+describe('mockLlm()', () => {
+  it('resolves with the reply as a text block', async () => {
+    const response = await mockLlm('Hello').messages.create({});
+    expect(response).toEqual({ content: [{ type: 'text', text: 'Hello' }], stop_reason: 'end_turn' });
+  });
+
+  it('rejects with an error reply', async () => {
+    await expect(mockLlm(new Error('boom')).messages.create({})).rejects.toThrow('boom');
+  });
+
+  it('passes raw blocks and a stop reason through', async () => {
+    const response = await mockLlm([], 'refusal').messages.create({});
+    expect(response).toEqual({ content: [], stop_reason: 'refusal' });
+  });
+});
 
 describe('scripted()', () => {
   it('yields scripted values in order', () => {
