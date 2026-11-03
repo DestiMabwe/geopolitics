@@ -178,7 +178,7 @@ AuthForm on its own screen, with a "Back to watching" link if the visitor came f
 ### 3.2 Home / Start
 | State | What shows |
 |---|---|
-| logged-out | Short intro, **Log in** and **Sign up** buttons. Nothing to start until logged in |
+| logged-out | A landing page (`Landing`): the pitch with **Sign up to play** and **Log in**, beside a picture of an example board (the real `WorldMap` on a made-up game, labelled as an example); **How a game works** in four steps; **Meet your rivals** with the three NPC profiles (names and blurbs from `profiles.js`); and **Watch a game**, where a visitor pastes a game link or id and goes to it without an account. Nothing to start until logged in |
 | loading | Skeleton list |
 | ready | GameList (if any) above "Start a new game". StartScreen has a searchable country list, sortable by name or soldier value |
 | selected | Selected country summary (`South Africa · 64.0M · ★5`), "Begin" enabled |
