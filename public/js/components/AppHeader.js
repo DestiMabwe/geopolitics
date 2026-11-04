@@ -1,5 +1,7 @@
 import { el } from '../dom.js';
 import { headerBadge } from '../spectator.js';
+import { HELP, HELP_IDS } from '../helpContent.js';
+import { hasSeen } from '../helpSeen.js';
 
 // DESIGN §2 AppHeader. Display only: the buttons carry data-action and app.js wires them (S25).
 
@@ -20,7 +22,25 @@ export function render({ round = null, currentPlayer = null, status = null, isOw
     { class: 'app-header' },
     el('h1', { class: 'app-header__title' }, el('a', { href: '/' }, 'Geopolitics')),
     round !== null && renderStatus(round, currentPlayer, badge),
+    renderHelp(),
     user ? renderMenu(user) : renderLoggedOut(),
+  );
+}
+
+// The two help pills show for everyone. A dot marks a pill that has not been opened yet on this
+// browser (helpSeen); opening it clears the dot. app.js opens the dialog.
+function renderHelp() {
+  return el(
+    'div',
+    { class: 'app-header__help' },
+    ...HELP_IDS.map((id) =>
+      el(
+        'button',
+        { type: 'button', class: 'help-pill', 'data-action': `help-${id}` },
+        HELP[id].pill,
+        !hasSeen(id) && el('span', { class: 'help-pill__dot' }, el('span', { class: 'visually-hidden' }, ' (new)')),
+      ),
+    ),
   );
 }
 

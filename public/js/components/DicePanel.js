@@ -25,7 +25,7 @@ const HOP = [
 ];
 
 /** One die: a cube whose six faces carry their pips, at rest showing `value` (or value 1 when undecided). */
-function die(value, ringClass = '') {
+export function die(value, ringClass = '') {
   const rest = restRotation(value);
   const faces = Object.entries(FACE_VALUE).map(([name, faceValue]) =>
     el(

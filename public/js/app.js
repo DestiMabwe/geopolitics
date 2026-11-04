@@ -5,6 +5,8 @@ import * as GameList from './components/GameList.js';
 import * as StartScreen from './components/StartScreen.js';
 import * as LoadError from './components/LoadError.js';
 import * as Landing from './components/Landing.js';
+import * as HelpDialog from './components/HelpDialog.js';
+import { markSeen } from './helpSeen.js';
 import { loadErrorMessage } from './loadError.js';
 import { loadHome } from './homeLoad.js';
 import { createApi } from './api.js';
@@ -190,6 +192,13 @@ async function beginGame(form, countryCode) {
   }
 }
 
+/** Opens a help dialog and clears that pill's "new" dot, in every header on the page. */
+function openHelp(id) {
+  HelpDialog.show({ id });
+  markSeen(id);
+  for (const dot of document.querySelectorAll(`[data-action="help-${id}"] .help-pill__dot`)) dot.remove();
+}
+
 /**
  * A click on any `[data-action]` button: 'login', 'signup', 'logout', 'my-games', 'new-game'.
  *
@@ -214,6 +223,10 @@ async function handleAction(action) {
       break;
     case 'new-game':
       goHome('start');
+      break;
+    case 'help-play':
+    case 'help-win':
+      openHelp(action.slice('help-'.length));
       break;
   }
 }
