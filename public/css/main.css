@@ -508,6 +508,41 @@ h3 {
   gap: var(--space-2);
 }
 
+/* Help pills: small outlined buttons beside the account area, with a brass dot until first opened. */
+.app-header__help {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.help-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-min);
+  padding: var(--space-1) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.help-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+@media (hover: hover) {
+  .help-pill:hover {
+    background: var(--color-surface-raised);
+  }
+}
+
 .app-header__menu {
   position: relative;
 }
@@ -1628,6 +1663,89 @@ button[aria-disabled="true"] {
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-2);
+}
+
+/* ── HelpDialog (DESIGN §2): How to play / How to win ── */
+.help-dialog {
+  width: min(34rem, calc(100% - 2 * var(--space-4)));
+  max-height: calc(100dvh - 2 * var(--space-4));
+  margin: auto;
+  padding: var(--space-5);
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-raised);
+}
+
+.help-dialog::backdrop {
+  background: rgb(0 0 0 / 0.6);
+}
+
+.help-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.help-dialog__title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+}
+
+.help-dialog h3 {
+  margin-bottom: var(--space-2);
+  color: var(--color-accent);
+  font-size: var(--text-lg);
+}
+
+.help-dialog__steps,
+.help-dialog__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-left: var(--space-5);
+}
+
+/* The page-wide reset removes list markers; the steps are an order, so they get numbers back. */
+.help-dialog__steps { list-style: decimal; }
+.help-dialog__list { list-style: disc; }
+
+.help-dialog__step-title {
+  color: var(--color-accent);
+}
+
+.help-dialog__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.help-dialog__example {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.help-dialog__caption {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.help-dialog__tip {
+  padding: var(--space-3);
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-surface);
+}
+
+.help-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* ── Accessibility helpers (DESIGN §2, S29) ─────── */
